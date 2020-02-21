@@ -45,6 +45,7 @@ def plotDataSimple(title, xAxisTitle, yAxisTitle, x, y, error_y):
     plt.title(title)
     plt.show()
 
+
 ############################ uselesss function ####################################################################
 def findStatPoints(x, y):
     # this function finds the maxima and minima points by comparing the neightbours
@@ -52,6 +53,8 @@ def findStatPoints(x, y):
     dips = np.where((y[1:-1] < y[0:-2]) * (y[1:-1] < y[2:]))[0] + 1
 
     return [[x[peaks], y[peaks]], [x[dips], y[dips]]]
+
+
 ####################################################################################################################
 
 def splitArrays(channelNumber, array):
@@ -61,8 +64,8 @@ def splitArrays(channelNumber, array):
     allArrays.append([channelNumber[500:650], array[500:650]])
     allArrays.append([channelNumber[650:750], array[650:750]])
     allArrays.append([channelNumber[720:1000], array[720:1000]])
-    for entry in allArrays:
-        plt.plot(entry[0], entry[1])
+    #for entry in allArrays:
+        #plt.plot(entry[0], entry[1])###########################################################################
 
     # "colour codes" the plots
     return allArrays
@@ -75,19 +78,52 @@ def search(arr, x):
             return i
     return -1
 
-def findZeroes(array):
-    x = array[0]
-    array = array[1] # splits the variable into two arrays
-    maximum = [x[search(array, np.max(array))], np.max(array)] # finds the maximum point
-    minimum = [x[search(array, np.min(array))], np.min(array)] # finds the minimum point
+
+def findZero(x, array):
+    # finds and returns the channel number at which the section of the array passes a zero
+    temp = np.min(array)
+    index2 = search(array, temp)
+    minimum = [x[index2], temp]
+
+    temp = np.max(array)
+    index1 = search(array, temp)
+    maximum = [x[index1], temp]
+
+    cut_array = array[index2:index1]
+    x_temp = x[index2:index1]
+
+    #plt.plot(x_temp, cut_array)
+
+    temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
+    interpolated_y = np.interp(temp, x_temp, cut_array)
+
+    fitted_parameters = np.polyfit(temp, interpolated_y, 1)
+    zero = (5 + -1 * fitted_parameters[1]) / fitted_parameters[0]
+    zero = np.rint(zero)
+    zero = int(zero)
+    return zero  # returns channel number
+
 
 def main():
-    h2odata = getData(water_file)
-    channel_number = np.arange(1, len(h2odata) + 1)  # get the x-coordiantes
+    h2o_data = getData(water_file)
+    channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordiantes
+
+    plt.plot(channel_number, h2o_data,"b+")
+
     wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
-    peaks_arrays = splitArrays(channel_number, h2odata)  # data arrays for the peaks
-    for peak in peaks_arrays: # peak has both x and y coordinates
-        print(peak)
-        #zeroes = findZeroes(peak):
+    peaks_arrays = splitArrays(channel_number, h2o_data)  # data arrays for the peaks
+    zeroes = []
+    for peak in peaks_arrays:  # peak has both x and y coordinates
+        temp = findZero(peak[0], peak[1])
+        zeroes.append([temp, h2o_data[temp - 1]])
+    print(zeroes)
+
+    for entry in zeroes:
+        print(entry)
+        plt.plot(entry[0], entry[1], "or")
+
+    plt.plot(channel_number,channel_number*0 + 5)
+
 
 main()
+plt.show()

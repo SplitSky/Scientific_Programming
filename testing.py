@@ -98,6 +98,7 @@ array = array - 5
 plt.plot(x, array)
 plt.plot(x, array)
 #
+
 temp = np.min(array)
 index2 = search(array, temp)
 minimum = [x[index2], temp]
@@ -114,11 +115,17 @@ plt.plot(x_temp, cut_array)
 temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
 interpolated_y = np.interp(temp, x_temp, cut_array)
 
-fitted_parameters = np.polyfit(temp,interpolated_y,1)
-print(fitted_parameters)
+fitted_parameters = np.polyfit(temp, interpolated_y, 1)
 zero = -1 * fitted_parameters[1] / fitted_parameters[0]
+plt.plot(temp, fitted_parameters[0] * temp + fitted_parameters[1], "g")
 print(zero)
 
+zero = np.rint(zero)
+zero = int(zero)
+
+plt.plot(zero, , "or")
+print(zero)
+plt.plot(x,x*0)
 
 #
 
