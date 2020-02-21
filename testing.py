@@ -96,13 +96,31 @@ array = np.array([4.9833, 4.9952, 4.9904, 4.9833, 4.9689, 4.9761, 4.9857, 5.0024
 x = np.array(x)
 array = array - 5
 plt.plot(x, array)
-
-#
-maximum = [x[search(array, np.max(array))], np.max(array)]
-minimum = [x[search(array, np.min(array))], np.min(array)]
-print(maximum, minimum)
-#
-
 plt.plot(x, array)
+#
+temp = np.min(array)
+index2 = search(array, temp)
+minimum = [x[index2], temp]
+
+temp = np.max(array)
+index1 = search(array, temp)
+maximum = [x[index1], temp]
+
+cut_array = array[index2:index1]
+x_temp = x[index2:index1]
+
+plt.plot(x_temp, cut_array)
+
+temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
+interpolated_y = np.interp(temp, x_temp, cut_array)
+
+fitted_parameters = np.polyfit(temp,interpolated_y,1)
+print(fitted_parameters)
+zero = -1 * fitted_parameters[1] / fitted_parameters[0]
+print(zero)
+
+
+#
+
 
 plt.show()
