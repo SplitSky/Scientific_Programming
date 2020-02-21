@@ -57,31 +57,34 @@ def findZero(array):
     maxima, minima = findStatPoints(array[0],array[1])
         
 
-h20data = np.genfromtxt(fileName, delimiter = ',')
-channelNumber  = np.arange(1,len(h20data)+1)
-waveNumber = [12683.782,12685.540,12685.769,12687.066]     # water
-plt.plot(x,h20data)
+def main():
+    h20data = np.genfromtxt(fileName, delimiter = ',')
+    channelNumber  = np.arange(1,len(h20data)+1)
+    waveNumber = [12683.782,12685.540,12685.769,12687.066]     # water
+    plt.plot(channelNumber,h20data)
 
-peaksArrays = splitArrays(channelNumber, h20data) # data arrays for the peaks
-zeroes = findZeros(channelNumber,peaksArrays)
-###################################
-
-
-
-'''
-
-h20dataPeaks = []
+    peaksArrays = splitArrays2(channelNumber, h20data) # data arrays for the peaks
+    zeroes = findZeros(channelNumber,peaksArrays)
+    ###################################
 
 
 
+    '''
+    
+    h20dataPeaks = []
+    
+    
+    
+    
+    fit_parameters = np.polyfit(channelNumber,h20dataPeaks,1)
+    fit_m = fit_parameters[0]
+    fit_c = fit_parameters[1]
+    print('Linear np.polyfit of y = m*x + c')
+    print('Gradient  m = {:04.2f}'.format(fit_m)),
+    print('Intercept c = {:04.2f}'.format(fit_c))
+    '''
 
-fit_parameters = np.polyfit(channelNumber,h20dataPeaks,1)
-fit_m = fit_parameters[0]
-fit_c = fit_parameters[1]
-print('Linear np.polyfit of y = m*x + c')
-print('Gradient  m = {:04.2f}'.format(fit_m)),
-print('Intercept c = {:04.2f}'.format(fit_c))
-'''
 
+    plt.show()
 
-plt.show()
+main()
