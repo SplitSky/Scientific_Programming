@@ -46,26 +46,20 @@ def plotDataSimple(title, xAxisTitle, yAxisTitle, x, y, error_y):
     plt.show()
 
 
-############################ uselesss function ####################################################################
-def findStatPoints(x, y):
-    # this function finds the maxima and minima points by comparing the neightbours
-    peaks = np.where((y[1:-1] > y[0:-2]) * (y[1:-1] > y[2:]))[0] + 1
-    dips = np.where((y[1:-1] < y[0:-2]) * (y[1:-1] < y[2:]))[0] + 1
-
-    return [[x[peaks], y[peaks]], [x[dips], y[dips]]]
-
-
-####################################################################################################################
-
-def splitArrays(channelNumber, array):
-    # splits the array into the peaks for the h2o data set
+def splitArrays(channelNumber, array, marker):
+    # splits the array into the peaks for the h2o data set and the c2h2 data set
     allArrays = []
-    allArrays.append([channelNumber[200:500], array[200:500]])
-    allArrays.append([channelNumber[500:650], array[500:650]])
-    allArrays.append([channelNumber[650:750], array[650:750]])
-    allArrays.append([channelNumber[720:1000], array[720:1000]])
-    # for entry in allArrays:
-    # plt.plot(entry[0], entry[1])###########################################################################
+    if marker:
+        allArrays.append([channelNumber[200:500], array[200:500]])
+        allArrays.append([channelNumber[500:650], array[500:650]])
+        allArrays.append([channelNumber[650:750], array[650:750]])
+        allArrays.append([channelNumber[720:1000], array[720:1000]])
+    else:
+        allArrays.append([channelNumber[:150], array[:150]])
+        allArrays.append([channelNumber[350:550], array[350:550]])
+        allArrays.append([channelNumber[800:900], array[800:900]])
+        allArrays.append([channelNumber[1200:1300], array[1200:1300]])
+        allArrays.append([channelNumber[1580:1650], array[1580:1650]])
 
     # "colour codes" the plots
     return allArrays
@@ -89,36 +83,64 @@ def findZero(x, array):
     cut_array = temp2[index2:index1]
     x_temp = x[index2:index1]
 
-    plt.plot(x_temp, cut_array)
+    # plt.plot(x_temp, cut_array+5)
 
     temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
     interpolated_y = np.interp(temp, x_temp, cut_array)
 
     fitted_parameters = np.polyfit(temp, interpolated_y, 1)
     zero = -1 * fitted_parameters[1] / fitted_parameters[0]
+
     return int(np.rint(zero))  # returns channel number
+
+
+def analysis():
 
 
 def main():
     h2o_data = getData(water_file)
+
     channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
 
-    plt.plot(channel_number, h2o_data)
+    # plt.plot(channel_number, h2o_data)
 
     wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
-    peaks_arrays = splitArrays(channel_number, h2o_data)  # data arrays for the peaks
-    zeroes = []
-    for peak in peaks_arrays:  # peak has both x and y coordinates
-        print(peak)
+    peaks_arrays = splitArrays(channel_number, h2o_data, True)  # data arrays for the peaks
+    zeroes = []  # the points where the graph crosses the 5V point
+
+    for peak in peaks_arrays:
         temp = findZero(peak[0], peak[1])
         zeroes.append([temp, h2o_data[temp - 1]])
-    print(zeroes)
 
-    for entry in zeroes:
-        print(entry)
-        plt.plot(entry[0], entry[1], "or")
+    temp = []
+    for counter in range(0, len(zeroes)):
+        temp.append(zeroes[counter][0])
 
-    plt.plot(channel_number, channel_number * 0 + 5)
+    temp = np.array(temp)
+    wave_number_water = np.array(wave_number_water)
+
+    fitting_parameter_calibration = np.polyfit(temp, wave_number_water, 1)  # calibration fitting
+    '''
+    enter the channel number and get the wave number
+    '''
+    c2h2_data = getData(experiment_file)
+
+    channel_number = np.arange(1, len(c2h2_data) + 1)  # get the x-coordinates
+
+    peaks_arrays = splitArrays(channel_number, c2h2_data, False)
+    zeroes = []
+
+    for peak in peaks_arrays:
+        temp = findZero(peak[0], peak[1])
+        zeroes.append([temp, c2h2_data[temp - 1]])
+    temp = []
+    for counter in range(0, len(zeroes)):
+        temp.append(zeroes[counter][0])
+
+    temp = np.array(temp)
+    wave_numbers_c2h2 = fitting_parameter_calibration[0] * temp + fitting_parameter_calibration[1]
+    # values of the wave number from calibrated spectrum
+
 
 
 main()
