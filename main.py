@@ -9,7 +9,6 @@ from math import *
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-
 plt.rcParams.update({'font.size': 14})
 plt.style.use('default')
 
@@ -93,9 +92,41 @@ def findZero(x, array):
 
     return int(np.rint(zero))  # returns channel number
 
+def linearFit(x,y):
+    # Perform a linear fit and get the errors
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True)
+    fit_m = fit_parameters[0]
+    fit_c = fit_parameters[1]
+    # Here, we (rather laboriously) explicitly define some variables so you can see
+    # exactly which matrix element is which
+    variance_m = fit_errors[0][0]
+    variance_c = fit_errors[1][1]
+    sigma_m = np.sqrt(variance_m)
+    sigma_c = np.sqrt(variance_c)
+    print('Linear np.polyfit of y = m*x + c')
+    print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
+    print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+    return [[fit_m,sigma_m], [fit_c, sigma_c]]
 
-def analysis():
-
+def quadraticFit(x,y):
+    # Perform a quadratic fit and get the errors
+    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True)
+    fit_a = fit_parameters[0]
+    fit_b = fit_parameters[1]
+    fit_c = fit_parameters[2]
+    # Here, we (rather laboriously) explicitly define some variables so you can see
+    # exactly which matrix element is which
+    variance_a = fit_errors[0][0]
+    variance_b = fit_errors[1][1]
+    variance_c = fit_errors[2][2]
+    sigma_a = np.sqrt(variance_a)
+    sigma_b = np.sqrt(variance_a)
+    sigma_c = np.sqrt(variance_c)
+    print('Quadratic fit of y = a*x**2 + b*x + c')
+    print('Quadratic term  a = {:04.10f} +/- {:04.10f}'.format(fit_a, sigma_a))
+    print('Linear term     b = {:04.10f} +/- {:04.10f}'.format(fit_b, sigma_b))
+    print('Intercept       c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+    return [[fit_a,sigma_a],[fit_b,sigma_b],[fit_c, sigma_c]]
 
 def main():
     h2o_data = getData(water_file)
@@ -140,8 +171,28 @@ def main():
     temp = np.array(temp)
     wave_numbers_c2h2 = fitting_parameter_calibration[0] * temp + fitting_parameter_calibration[1]
     # values of the wave number from calibrated spectrum
+    energy_c2h2 = c * h * wave_numbers_c2h2
 
+    x = np.array([1., 2, 3, 4.1, 5, 6, 6.5, 8, 9.3, 10.7])
+    y = 2*x**2 + 5*x + 7
+    results = quadraticFit(x,y)
+    #####################################################################################################
+    '''
+    m = np.array([3, 4, 5, 6, 7])
+    fit_parameters, fit_errors = np.polyfit(m, energy_c2h2, 1, cov=True)
+    fit_m = fit_parameters[0]
+    fit_c = fit_parameters[1]
 
+    variance_m = fit_errors[0][0]
+    variance_c = fit_errors[1][1]
+    sigma_m = np.sqrt(variance_m)
+    sigma_c = np.sqrt(variance_c)
+    print("Linear fit of the quantum number against the energy values of the spectrum for h2c2 is:")
+    print("Gradient: m = {:04.10f} +/- {:04.10f}".format(fit_m, sigma_m))
+    print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+
+    # linear fitting of the c2h2 data
+    '''
 
 main()
 plt.show()
