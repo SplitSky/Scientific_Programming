@@ -12,12 +12,14 @@ import random
 
 plt.rcParams.update({'font.size': 14})
 plt.style.use('default')
+figure = plt.figure()
 
 # constants
 c = 299792458  # speed of light in ms^-1
 h = 6.626E-34  # Planck's constant in Js
 water_file = 'h2o.dat'
 experiment_file = 'c2h2.dat'
+number_of_plots = 1
 
 
 # functions
@@ -115,8 +117,8 @@ def linearFit(x, y):
     y = fit_m * x + fit_c
     plt.plot(x, y, "b+")  #######################################################################################
 
-    error = np.std(np.abs(y - (fit_m*x + fit_c)))       # returns the estimated error for the value
-    return [[fit_m,sigma_m], [fit_c, sigma_c]], error
+    error = np.std(np.abs(y - (fit_m * x + fit_c)))  # returns the estimated error for the value
+    return [[fit_m, sigma_m], [fit_c, sigma_c]], error
 
 
 def quadraticFit(x, y):
@@ -166,7 +168,8 @@ def getZeroes(channel_number, data, marker):
 
     return np.array(temp)
 
-def plot_residuals(x, y, err_y):
+
+def plot_residuals(x, y, err_y, number_of_plots):
     y_sigma = err_y
     # Create array of weights (1/sigma) for y values, with same size as data array y
     y_weights = (1 / y_sigma) * np.ones(np.size(y))
@@ -177,12 +180,10 @@ def plot_residuals(x, y, err_y):
     # Create set of fitted y values using fit parameters from np.polyfit, and original x values
     y_fitted = np.polyval(fit_parameters, x)
     # Make plot of the residuals, using the 'errorbar' plotting
-    plt.rcParams["figure.figsize"] = (6, 3)
-    plt.figure()
-    plt.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Residuals of linear regression of example data set")
+
+    axes_1 = figure.add_subplot(110 + number_of_plots)
+    axes_1.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+    return number_of_plots
 
 def main():
     h2o_data = getData(water_file)
@@ -192,25 +193,13 @@ def main():
     # plt.plot(channel_number, h2o_data)
 
     wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
-    '''
-    peaks_arrays = splitArrays(channel_number, h2o_data, True)  # data arrays for the peaks
-    zeroes = []  # the points where the graph crosses the 5V point
 
-    for peak in peaks_arrays:
-        temp = findZero(peak[0], peak[1])
-        zeroes.append([temp, h2o_data[temp - 1]])
-
-    temp = []
-    for counter in range(0, len(zeroes)):
-        temp.append(zeroes[counter][0])
-
-    temp = np.array(temp)
-    '''
     water_zeroes = getZeroes(channel_number, h2o_data, True)
 
     wave_number_water = np.array(wave_number_water)
 
     fitting_parameter_calibration = np.polyfit(water_zeroes, wave_number_water, 1)  # calibration fitting
+
     '''
     enter the channel number and get the wave number
     '''
@@ -236,6 +225,7 @@ def main():
     # linear fitting of the c2h2 data #
     m = np.array([3, 4, 5, 6, 7])
     results = linearFit(m, temp)
+
     results_2 = quadraticFit(m, temp)
 
 
