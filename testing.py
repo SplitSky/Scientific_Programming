@@ -1,91 +1,206 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb 14 12:35:35 2020
-
-@author: d06939tn
-"""
+'''
+Description:
+Author: Tomasz Neska
+Date: 12.02.2020
+'''
+# initialization
+import string
+from math import *
 import numpy as np
 import matplotlib.pyplot as plt
-import math as m
+import random
+
+plt.rcParams.update({'font.size': 14})
+plt.style.use('default')
+
+# constants
+c = 299792458  # speed of light in ms^-1
+h = 6.626E-34  # Planck's constant in Js
+water_file = 'h2o.dat'
+experiment_file = 'c2h2.dat'
+
+
+# functions
+def getData(filename):
+    data = np.genfromtxt(filename, delimiter=',')
+    temp = []
+    for counter in range(0, len(data), 1):
+        if data[counter] == np.NaN:
+            temp.append(counter)  # appends the index values that contain invalid entries
+
+    for entry in temp:  # deletes the data that is not valid
+        data = np.delete(data, entry)
+
+    return data
+
+
+def plotDataSimple(title, xAxisTitle, yAxisTitle, x, y, error_y):
+    print("printing data")
+    plt.rcParams["figure.figsize"] = (6, 3)
+    plt.figure()
+    plt.plot(x, y, "ro")
+    plt.errorbar(x, y, error_y, )
+    plt.xlabel(xAxisTitle)
+    plt.ylabel(yAxisTitle)
+    plt.title(title)
+    plt.show()
+
+
+def splitArrays(channelNumber, array, marker):
+    # splits the array into the peaks for the h2o data set and the c2h2 data set
+    allArrays = []
+    if marker:
+        allArrays.append([channelNumber[200:500], array[200:500]])
+        allArrays.append([channelNumber[500:650], array[500:650]])
+        allArrays.append([channelNumber[650:750], array[650:750]])
+        allArrays.append([channelNumber[720:1000], array[720:1000]])
+    else:
+        allArrays.append([channelNumber[:150], array[:150]])
+        allArrays.append([channelNumber[350:550], array[350:550]])
+        allArrays.append([channelNumber[800:900], array[800:900]])
+        allArrays.append([channelNumber[1200:1300], array[1200:1300]])
+        allArrays.append([channelNumber[1580:1650], array[1580:1650]])
+
+    # "colour codes" the plots
+    return allArrays
 
 
 def search(arr, x):
+    # linear search function
     for i in range(len(arr)):
         if arr[i] == x:
             return i
     return -1
 
 
-def extractPeaks(x, array, n):
-    # n is the expected number of peaks
-    peaks = []
-    dips = []
-    for counter in range(0, n, 1):
-        maximumIndex = search(array, np.max(array))
-        peaks.append([x[maximumIndex], np.max(array)])
-        minimumIndex = search(array, np.min(array))
-        dips.append([x[minimumIndex], np.min(array)])
-        array = np.delete(array, minimumIndex)
-        array = np.delete(array, maximumIndex)
+def findZero(x, array):
+    temp2 = array - 5
+    # finds and returns the channel number at which the section of the array passes a zero
 
-    return [peaks, dips, array]
+    index2 = search(temp2, np.min(temp2))
+    index1 = search(temp2, np.max(temp2))
+
+    cut_array = temp2[index2:index1]
+    x_temp = x[index2:index1]
+
+    # plt.plot(x_temp, cut_array+5)
+
+    temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
+    interpolated_y = np.interp(temp, x_temp, cut_array)
+
+    fitted_parameters = np.polyfit(temp, interpolated_y, 1)
+    zero = -1 * fitted_parameters[1] / fitted_parameters[0]
+
+    return int(np.rint(zero))  # returns channel number
 
 
-x = [651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 661, 662, 663,
-     664, 665, 666, 667, 668, 669, 670, 671, 672, 673, 674, 675, 676,
-     677, 678, 679, 680, 681, 682, 683, 684, 685, 686, 687, 688, 689,
-     690, 691, 692, 693, 694, 695, 696, 697, 698, 699, 700, 701, 702,
-     703, 704, 705, 706, 707, 708, 709, 710, 711, 712, 713, 714, 715,
-     716, 717, 718, 719, 720, 721, 722, 723, 724, 725, 726, 727, 728,
-     729, 730, 731, 732, 733, 734, 735, 736, 737, 738, 739, 740, 741,
-     742, 743, 744, 745, 746, 747, 748, 749, 750]
+def linearFit(x, y):
+    plt.plot(x, y)  #######################################################################################
+    # Perform a linear fit and get the errors
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True)
+    fit_m = fit_parameters[0]
+    fit_c = fit_parameters[1]
+    # Here, we (rather laboriously) explicitly define some variables so you can see
+    # exactly which matrix element is which
+    variance_m = fit_errors[0][0]
+    variance_c = fit_errors[1][1]
+    sigma_m = np.sqrt(variance_m)
+    sigma_c = np.sqrt(variance_c)
+    print('Linear np.polyfit of y = m*x + c')
+    print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
+    print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
 
-array = np.array([5.1003, 5.0788, 5.0669, 5.0645, 5.0693, 5.0287, 4.9904, 4.9713,
-                  4.9403, 4.8495, 4.7038, 4.5127, 4.2929, 4.1066, 3.9824, 4.0301,
-                  4.3168, 4.7946, 5.3655, 5.8289, 6.1156, 6.1801, 6.0439, 5.8385,
-                  5.6522, 5.5064, 5.3679, 5.2819, 5.2293, 5.1648, 5.1553, 5.1481,
-                  5.1409, 5.1242, 5.1194, 5.1171, 5.0764, 5.0884, 5.0956, 5.0836,
-                  5.0645, 5.0693, 5.0812, 5.0621, 5.0597, 5.0478, 5.0597, 5.0597,
-                  5.0573, 5.0526, 5.0454, 5.0717, 5.0717, 5.0645, 5.0621, 5.0884,
-                  5.0741, 5.0836, 5.0812, 5.0741, 5.0788, 5.0741, 5.0764, 5.0836,
-                  5.0645, 5.0812, 5.0764, 5.0645, 5.0597, 5.0549, 5.0597, 5.0526,
-                  5.0573, 5.0526, 5.0478, 5.0502, 5.0597, 5.0621, 5.0621, 5.0597,
-                  5.0597, 5.0597, 5.0621, 5.0573, 5.043, 5.0549, 5.0573, 5.0597,
-                  5.0526, 5.0358, 5.0382, 5.043, 5.0502, 5.0382, 5.043, 5.0478,
-                  5.0526, 5.0502, 5.0478, 5.043])
-x = np.array(x)
-array = array - 5
-plt.plot(x, array)
-plt.plot(x, array)
-#
+    x = [3, 4, 5, 6, 7]  #######################################################################################
+    x = np.array(x)
+    y = fit_m * x + fit_c
+    plt.plot(x, y, "b+")  #######################################################################################
+    return [[fit_m, sigma_m], [fit_c, sigma_c]]
 
-temp = np.min(array)
-index2 = search(array, temp)
-minimum = [x[index2], temp]
 
-temp = np.max(array)
-index1 = search(array, temp)
-maximum = [x[index1], temp]
+def quadraticFit(x, y):
+    # Perform a quadratic fit and get the errors
+    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True)
+    fit_a = fit_parameters[0]
+    fit_b = fit_parameters[1]
+    fit_c = fit_parameters[2]
+    # Here, we (rather laboriously) explicitly define some variables so you can see
+    # exactly which matrix element is which
+    variance_a = fit_errors[0][0]
+    variance_b = fit_errors[1][1]
+    variance_c = fit_errors[2][2]
+    sigma_a = np.sqrt(variance_a)
+    sigma_b = np.sqrt(variance_a)
+    sigma_c = np.sqrt(variance_c)
+    print('Quadratic fit of y = a*x**2 + b*x + c')
+    print('Quadratic term  A = {:04.10f} +/- {:04.10f}'.format(fit_a, sigma_a))
+    print('Linear term     B = {:04.10f} +/- {:04.10f}'.format(fit_b, sigma_b))
+    print('Intercept       C = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+    return [[fit_a, sigma_a], [fit_b, sigma_b], [fit_c, sigma_c]]
 
-cut_array = array[index2:index1]
-x_temp = x[index2:index1]
 
-plt.plot(x_temp, cut_array)
+def function(m, c, x):
+    return m * x + c
 
-temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
-interpolated_y = np.interp(temp, x_temp, cut_array)
 
-fitted_parameters = np.polyfit(temp, interpolated_y, 1)
-zero = -1 * fitted_parameters[1] / fitted_parameters[0]
-plt.plot(temp, fitted_parameters[0] * temp + fitted_parameters[1], "g")
-print(zero)
+def addErrors(type, a, error_a, b, error_b, c):
+    # both functions return the absolute error
+    if type:  # this type is adding in quadrature
+        return np.sqrt(error_a ** 2 + error_b ** 2)
+    else:  # this is for adding percentage error
+        return c * np.sqrt((error_b / b) ** 2 + (error_a / a) ** 2)
 
-zero = np.rint(zero)
-zero = int(zero)
 
-plt.plot(zero, 0, "or")
-print(zero)
-plt.plot(x, x * 0)
+def getZeroes(channel_number, data, marker):
+    peaks_arrays = splitArrays(channel_number, data, marker)  # data arrays for the peaks
+    zeroes = []  # the points where the graph crosses the 5V point
+    # uses the maximum and minimum values to find the zero points
+    for peak in peaks_arrays:
+        temp = findZero(peak[0], peak[1])
+        zeroes.append([temp, data[temp - 1]])
 
-#
+    temp = []
+    for counter in range(0, len(zeroes)):
+        temp.append(zeroes[counter][0])
+
+    return np.array(temp)
+
+
+### functions developed here
+
+def plot_residuals(x, y, err_y):
+    y_sigma = err_y
+    # Create array of weights (1/sigma) for y values, with same size as data array y
+    y_weights = (1 / y_sigma) * np.ones(np.size(y))
+    # Create array of error values for the error bar plot below; each element is y_sigma
+    y_errors = y_sigma * np.ones(np.size(y))
+    # Perform fit using np.polyfit
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=y_weights)
+    # Create set of fitted y values using fit parameters from np.polyfit, and original x values
+    y_fitted = np.polyval(fit_parameters, x)
+    # Make plot of the residuals, using the 'errorbar' plotting
+    '''
+    get the residuals plotted in a different figure
+    '''
+    plt.rcParams["figure.figsize"] = (6, 3)
+    plt.figure()
+    plt.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.title("Residuals of linear regression of example data set")
+
+
+def main():
+    m = 5
+    c = 1
+    x = np.arange(0, 21)
+    y = np.array([1.1, 5.9, 11.6, 17, 21.5, 26.4, 31.2, 40.6, 46, 51, 57, 60, 65, 2, 77, 71, 76, 81, 89, 92, 97])
+
+    results = np.polyfit(x, y, 1)
+    print(results)
+    err_y = results[0] * x + results[1]
+    error = np.std(err_y)
+    plot_residuals(x, y, error)
+
+
+main()
 plt.show()

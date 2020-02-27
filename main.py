@@ -9,6 +9,7 @@ from math import *
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+
 plt.rcParams.update({'font.size': 14})
 plt.style.use('default')
 
@@ -92,7 +93,9 @@ def findZero(x, array):
 
     return int(np.rint(zero))  # returns channel number
 
-def linearFit(x,y):
+
+def linearFit(x, y):
+    plt.plot(x, y)  #######################################################################################
     # Perform a linear fit and get the errors
     fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True)
     fit_m = fit_parameters[0]
@@ -106,9 +109,15 @@ def linearFit(x,y):
     print('Linear np.polyfit of y = m*x + c')
     print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
     print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
-    return [[fit_m,sigma_m], [fit_c, sigma_c]]
 
-def quadraticFit(x,y):
+    x = [3, 4, 5, 6, 7]  #######################################################################################
+    x = np.array(x)
+    y = fit_m * x + fit_c
+    plt.plot(x, y, "b+")  #######################################################################################
+    return [[fit_m, sigma_m], [fit_c, sigma_c]]
+
+
+def quadraticFit(x, y):
     # Perform a quadratic fit and get the errors
     fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True)
     fit_a = fit_parameters[0]
@@ -123,76 +132,75 @@ def quadraticFit(x,y):
     sigma_b = np.sqrt(variance_a)
     sigma_c = np.sqrt(variance_c)
     print('Quadratic fit of y = a*x**2 + b*x + c')
-    print('Quadratic term  a = {:04.10f} +/- {:04.10f}'.format(fit_a, sigma_a))
-    print('Linear term     b = {:04.10f} +/- {:04.10f}'.format(fit_b, sigma_b))
-    print('Intercept       c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
-    return [[fit_a,sigma_a],[fit_b,sigma_b],[fit_c, sigma_c]]
+    print('Quadratic term  A = {:04.10f} +/- {:04.10f}'.format(fit_a, sigma_a))
+    print('Linear term     B = {:04.10f} +/- {:04.10f}'.format(fit_b, sigma_b))
+    print('Intercept       C = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+    return [[fit_a, sigma_a], [fit_b, sigma_b], [fit_c, sigma_c]]
+
+
+def function(m, c, x):
+    return m * x + c
+
+
+def addErrors(type, a, error_a, b, error_b, c):
+    # both functions return the absolute error
+    if type:  # this type is adding in quadrature
+        return np.sqrt(error_a ** 2 + error_b ** 2)
+    else:  # this is for adding percentage error
+        return c * np.sqrt((error_b / b) ** 2 + (error_a / a) ** 2)
+
+
+def getZeroes(channel_number, data, marker):
+    peaks_arrays = splitArrays(channel_number, data, marker)  # data arrays for the peaks
+    zeroes = []  # the points where the graph crosses the 5V point
+    # uses the maximum and minimum values to find the zero points
+    for peak in peaks_arrays:
+        temp = findZero(peak[0], peak[1])
+        zeroes.append([temp, data[temp - 1]])
+
+    temp = []
+    for counter in range(0, len(zeroes)):
+        temp.append(zeroes[counter][0])
+
+    return np.array(temp)
+
+
+### functions developed here
+
+def plot_residuals(x, y, err_y):
+    y_sigma = err_y
+    # Create array of weights (1/sigma) for y values, with same size as data array y
+    y_weights = (1 / y_sigma) * np.ones(np.size(y))
+    # Create array of error values for the error bar plot below; each element is y_sigma
+    y_errors = y_sigma * np.ones(np.size(y))
+    # Perform fit using np.polyfit
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=y_weights)
+    # Create set of fitted y values using fit parameters from np.polyfit, and original x values
+    y_fitted = np.polyval(fit_parameters, x)
+    # Make plot of the residuals, using the 'errorbar' plotting
+    '''
+    get the residuals plotted in a different figure
+    '''
+    plt.rcParams["figure.figsize"] = (6, 3)
+    plt.figure()
+    plt.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.title("Residuals of linear regression of example data set")
+
 
 def main():
-    h2o_data = getData(water_file)
+    m = 5
+    c = 1
+    x = np.arange(0, 21)
+    y = np.array([1.1, 5.9, 11.6, 17, 21.5, 26.4, 31.2, 40.6, 46, 51, 57, 60, 65, 2, 77, 71, 76, 81, 89, 92, 97])
 
-    channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
+    results = np.polyfit(x, y, 1)
+    print(results)
+    err_y = results[0] * x + results[1]
+    error = np.std(err_y)
+    plot_residuals(x, y, error)
 
-    # plt.plot(channel_number, h2o_data)
-
-    wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
-    peaks_arrays = splitArrays(channel_number, h2o_data, True)  # data arrays for the peaks
-    zeroes = []  # the points where the graph crosses the 5V point
-
-    for peak in peaks_arrays:
-        temp = findZero(peak[0], peak[1])
-        zeroes.append([temp, h2o_data[temp - 1]])
-
-    temp = []
-    for counter in range(0, len(zeroes)):
-        temp.append(zeroes[counter][0])
-
-    temp = np.array(temp)
-    wave_number_water = np.array(wave_number_water)
-
-    fitting_parameter_calibration = np.polyfit(temp, wave_number_water, 1)  # calibration fitting
-    '''
-    enter the channel number and get the wave number
-    '''
-    c2h2_data = getData(experiment_file)
-
-    channel_number = np.arange(1, len(c2h2_data) + 1)  # get the x-coordinates
-
-    peaks_arrays = splitArrays(channel_number, c2h2_data, False)
-    zeroes = []
-
-    for peak in peaks_arrays:
-        temp = findZero(peak[0], peak[1])
-        zeroes.append([temp, c2h2_data[temp - 1]])
-    temp = []
-    for counter in range(0, len(zeroes)):
-        temp.append(zeroes[counter][0])
-
-    temp = np.array(temp)
-    wave_numbers_c2h2 = fitting_parameter_calibration[0] * temp + fitting_parameter_calibration[1]
-    # values of the wave number from calibrated spectrum
-    energy_c2h2 = c * h * wave_numbers_c2h2
-
-    x = np.array([1., 2, 3, 4.1, 5, 6, 6.5, 8, 9.3, 10.7])
-    y = 2*x**2 + 5*x + 7
-    results = quadraticFit(x,y)
-    #####################################################################################################
-    '''
-    m = np.array([3, 4, 5, 6, 7])
-    fit_parameters, fit_errors = np.polyfit(m, energy_c2h2, 1, cov=True)
-    fit_m = fit_parameters[0]
-    fit_c = fit_parameters[1]
-
-    variance_m = fit_errors[0][0]
-    variance_c = fit_errors[1][1]
-    sigma_m = np.sqrt(variance_m)
-    sigma_c = np.sqrt(variance_c)
-    print("Linear fit of the quantum number against the energy values of the spectrum for h2c2 is:")
-    print("Gradient: m = {:04.10f} +/- {:04.10f}".format(fit_m, sigma_m))
-    print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
-
-    # linear fitting of the c2h2 data
-    '''
 
 main()
 plt.show()
