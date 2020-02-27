@@ -114,7 +114,9 @@ def linearFit(x, y):
     x = np.array(x)
     y = fit_m * x + fit_c
     plt.plot(x, y, "b+")  #######################################################################################
-    return [[fit_m, sigma_m], [fit_c, sigma_c]]
+
+    error = np.std(np.abs(y - (fit_m*x + fit_c)))       # returns the estimated error for the value
+    return [[fit_m,sigma_m], [fit_c, sigma_c]], error
 
 
 def quadraticFit(x, y):
@@ -164,9 +166,6 @@ def getZeroes(channel_number, data, marker):
 
     return np.array(temp)
 
-
-### functions developed here
-
 def plot_residuals(x, y, err_y):
     y_sigma = err_y
     # Create array of weights (1/sigma) for y values, with same size as data array y
@@ -178,9 +177,6 @@ def plot_residuals(x, y, err_y):
     # Create set of fitted y values using fit parameters from np.polyfit, and original x values
     y_fitted = np.polyval(fit_parameters, x)
     # Make plot of the residuals, using the 'errorbar' plotting
-    '''
-    get the residuals plotted in a different figure
-    '''
     plt.rcParams["figure.figsize"] = (6, 3)
     plt.figure()
     plt.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
@@ -188,18 +184,59 @@ def plot_residuals(x, y, err_y):
     plt.ylabel("y")
     plt.title("Residuals of linear regression of example data set")
 
-
 def main():
-    m = 5
-    c = 1
-    x = np.arange(0, 21)
-    y = np.array([1.1, 5.9, 11.6, 17, 21.5, 26.4, 31.2, 40.6, 46, 51, 57, 60, 65, 2, 77, 71, 76, 81, 89, 92, 97])
+    h2o_data = getData(water_file)
 
-    results = np.polyfit(x, y, 1)
-    print(results)
-    err_y = results[0] * x + results[1]
-    error = np.std(err_y)
-    plot_residuals(x, y, error)
+    channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
+
+    # plt.plot(channel_number, h2o_data)
+
+    wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
+    '''
+    peaks_arrays = splitArrays(channel_number, h2o_data, True)  # data arrays for the peaks
+    zeroes = []  # the points where the graph crosses the 5V point
+
+    for peak in peaks_arrays:
+        temp = findZero(peak[0], peak[1])
+        zeroes.append([temp, h2o_data[temp - 1]])
+
+    temp = []
+    for counter in range(0, len(zeroes)):
+        temp.append(zeroes[counter][0])
+
+    temp = np.array(temp)
+    '''
+    water_zeroes = getZeroes(channel_number, h2o_data, True)
+
+    wave_number_water = np.array(wave_number_water)
+
+    fitting_parameter_calibration = np.polyfit(water_zeroes, wave_number_water, 1)  # calibration fitting
+    '''
+    enter the channel number and get the wave number
+    '''
+    c2h2_data = getData(experiment_file)
+
+    channel_number = np.arange(1, len(c2h2_data) + 1)  # get the x-coordinates
+
+    peaks_arrays = splitArrays(channel_number, c2h2_data, False)
+    zeroes = []
+
+    for peak in peaks_arrays:
+        temp = findZero(peak[0], peak[1])
+        zeroes.append([temp, c2h2_data[temp - 1]])
+    temp = []
+    for counter in range(0, len(zeroes)):
+        temp.append(zeroes[counter][0])
+
+    temp = np.array(temp)
+    wave_numbers_c2h2 = fitting_parameter_calibration[0] * temp + fitting_parameter_calibration[1]
+    # values of the wave number from calibrated spectrum
+    energy_c2h2 = c * h * wave_numbers_c2h2
+
+    # linear fitting of the c2h2 data #
+    m = np.array([3, 4, 5, 6, 7])
+    results = linearFit(m, temp)
+    results_2 = quadraticFit(m, temp)
 
 
 main()
