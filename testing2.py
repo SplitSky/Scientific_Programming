@@ -19,7 +19,7 @@ c = 299792458  # speed of light in ms^-1
 h = 6.626E-34  # Planck's constant in Js
 water_file = 'h2o.dat'
 experiment_file = 'c2h2.dat'
-number_of_plots = 1
+
 
 
 # functions
@@ -94,12 +94,12 @@ def findZero(x, array):
     zero = -1 * fitted_parameters[1] / fitted_parameters[0]
 
     return int(np.rint(zero))  # returns channel number
+    
 
-
-def linearFit(x, y):
-    plt.plot(x, y)  #######################################################################################
+def linearFit(x, y, ey):
+    #plt.plot(x, y)  #######################################################################################
     # Perform a linear fit and get the errors
-    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True)
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w= ey)
     fit_m = fit_parameters[0]
     fit_c = fit_parameters[1]
     # Here, we (rather laboriously) explicitly define some variables so you can see
@@ -112,28 +112,32 @@ def linearFit(x, y):
     print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
     print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
 
-    x = [3, 4, 5, 6, 7]  #######################################################################################
-    x = np.array(x)
-    y = fit_m * x + fit_c
-    plt.plot(x, y, "b+")  #######################################################################################
-
-    error = np.std(np.abs(y - (fit_m * x + fit_c)))  # returns the estimated error for the value
-    return [[fit_m, sigma_m], [fit_c, sigma_c]], error
+    # error = np.std(np.abs(y - (fit_m * x + fit_c)))  # returns the estimated error for the value # incorrect but still may be useful
+    return [[fit_m, sigma_m], [fit_c, sigma_c]]
 
 
-def quadraticFit(x, y):
+def quadraticFit(x, y, ey):
     # Perform a quadratic fit and get the errors
-    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True)
+    print(x)
+    print(y)
+    print(ey)
+    
+    #plt.plot(x,y,"b+")
+    
+    
+    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w= ey)
     fit_a = fit_parameters[0]
     fit_b = fit_parameters[1]
     fit_c = fit_parameters[2]
-    # Here, we (rather laboriously) explicitly define some variables so you can see
-    # exactly which matrix element is which
+    
+    #plt.plot(x, fit_a*x**2 + fit_b*x + fit_c)
+    print(fit_errors)
+    
     variance_a = fit_errors[0][0]
     variance_b = fit_errors[1][1]
     variance_c = fit_errors[2][2]
     sigma_a = np.sqrt(variance_a)
-    sigma_b = np.sqrt(variance_a)
+    sigma_b = np.sqrt(variance_b)
     sigma_c = np.sqrt(variance_c)
     print('Quadratic fit of y = a*x**2 + b*x + c')
     print('Quadratic term  A = {:04.10f} +/- {:04.10f}'.format(fit_a, sigma_a))
@@ -161,15 +165,17 @@ def getZeroes(channel_number, data, marker):
     for peak in peaks_arrays:
         temp = findZero(peak[0], peak[1])
         zeroes.append([temp, data[temp - 1]])
+        plt.plot(temp, data[temp-1])
 
     temp = []
     for counter in range(0, len(zeroes)):
         temp.append(zeroes[counter][0])
 
+
     return np.array(temp)
 
 
-def plot_residuals(x, y, err_y, number_of_plots):
+def plot_residuals(x, y, err_y):
     y_sigma = err_y
     # Create array of weights (1/sigma) for y values, with same size as data array y
     y_weights = (1 / y_sigma) * np.ones(np.size(y))
@@ -181,52 +187,60 @@ def plot_residuals(x, y, err_y, number_of_plots):
     y_fitted = np.polyval(fit_parameters, x)
     # Make plot of the residuals, using the 'errorbar' plotting
 
-    axes_1 = figure.add_subplot(110 + number_of_plots)
+    axes_1 = figure.add_subplot(111)
     axes_1.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
-    return number_of_plots
-
+    
+def getChiSqrt(fit_y,y,ey):
+    # all arrays are numpy arrays
+    # returns the chi squared value
+    chi_sqrt = ( (y - fit_y) / (ey))**2
+    return np.sum(chi_sqrt)
+    
 def main():
+    
+    ##          error = 1
     h2o_data = getData(water_file)
-
     channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
-
     # plt.plot(channel_number, h2o_data)
 
     wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
-
     water_zeroes = getZeroes(channel_number, h2o_data, True)
-
     wave_number_water = np.array(wave_number_water)
-
-    fitting_parameter_calibration = np.polyfit(water_zeroes, wave_number_water, 1)  # calibration fitting
-
+    print("calibration fitting for the wave number against channel number plot")
+    fit_param_cal = linearFit(water_zeroes, wave_number_water,np.ones(np.size(water_zeroes)))
+    print(" ")
     '''
     enter the channel number and get the wave number
     '''
     c2h2_data = getData(experiment_file)
-
-    channel_number = np.arange(1, len(c2h2_data) + 1)  # get the x-coordinates
-
-    peaks_arrays = splitArrays(channel_number, c2h2_data, False)
-    zeroes = []
-
-    for peak in peaks_arrays:
-        temp = findZero(peak[0], peak[1])
-        zeroes.append([temp, c2h2_data[temp - 1]])
-    temp = []
-    for counter in range(0, len(zeroes)):
-        temp.append(zeroes[counter][0])
-
-    temp = np.array(temp)
-    wave_numbers_c2h2 = fitting_parameter_calibration[0] * temp + fitting_parameter_calibration[1]
+    channel_number = np.arange(1, len(c2h2_data) + 1)  # get the x-coordinates    
+    c2h2_zeroes = getZeroes(channel_number, c2h2_data, False)
+    
     # values of the wave number from calibrated spectrum
-    energy_c2h2 = c * h * wave_numbers_c2h2
-
     # linear fitting of the c2h2 data #
+    error_arr = np.ones(np.size(c2h2_zeroes))
     m = np.array([3, 4, 5, 6, 7])
-    results = linearFit(m, temp)
+    print("Linear fitting for the c2h2 zeroes data against quantum number")
+    results = linearFit(m, c2h2_zeroes,error_arr)
+    chi_sqrt = getChiSqrt(m*results[0][0]+results[1][0],c2h2_zeroes,error_arr)
+    print("The value of chi squared is: {:04.10f}".format(chi_sqrt))
+    print(" ")
+    
+    print("Quadratic fitting for the c2h2 zeroes data against quatum number")
+    error_arr = np.ones(np.size(c2h2_zeroes)) # re declare remove later
+    results_2 = quadraticFit(m, c2h2_zeroes,error_arr)
+    chi_sqrt = getChiSqrt(results_2[0][0]*m**2 + results_2[1][0]*m + results_2[2][0], c2h2_zeroes, error_arr)
+    print("The value of chi squared is: {:04.10f}".format(chi_sqrt))
+    print(" ")
+    wave_numbers_c2h2 = fit_param_cal[0][0] * c2h2_zeroes
+    energy_c2h2 = c * h * wave_numbers_c2h2
+    
+    
+    plt.plot(c2h2_zeroes,5*np.ones(np.size(c2h2_zeroes)),"b+")
+    plt.plot(channel_number, c2h2_data)
 
-    results_2 = quadraticFit(m, temp)
+    
+    
 
 
 main()
