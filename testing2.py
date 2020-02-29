@@ -38,17 +38,54 @@ def getData(filename):
     return data
 
 
-def plotDataSimple(title, xAxisTitle, yAxisTitle, x, y, error_y):
-    print("printing data")
+def plotDataSimple(title, xAxisTitle, yAxisTitle, x, y):
+    figure = plt.figure()
+    axis_1 = figure.add_subplot(111)
+    axis_1.plot(x, y, "r+")
+    axis_1.plot(x, y)
+    axis_1.xlabel(xAxisTitle)
+    axis_1.ylabel(yAxisTitle)
+    axis_1.title = title
+    plt.savefig(title + ".png")
+
+
+def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     plt.rcParams["figure.figsize"] = (6, 3)
-    axis =
-    plt.figure()
-    plt.plot(x, y, "b+")
-    plt.errorbar(x, y, error_y, )
-    plt.xlabel(xAxisTitle)
-    plt.ylabel(yAxisTitle)
+
+    figure = plt.figure()
+    axes_1 = figure.add_subplot(121)
+    axes_1.plot(x, y, "b+", label=label)
+    plt.xlabel(xAxisTitle)  #
+    plt.ylabel(yAxisTitle)  # edit from axes
     plt.title(title)
-    plt.show()
+    y_weights = (1 / error_y) * np.ones(np.size(y))
+    y_errors = error_y * np.ones(np.size(y))
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=y_weights)
+    y_fitted = np.polyval(fit_parameters, x)
+    axes_2 = figure.add_subplot(122)
+    axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+
+    plt.savefig(title + ".png")
+
+
+def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
+    plt.rcParams["figure.figsize"] = (6, 3)
+
+    figure = plt.figure()
+    axes_1 = figure.add_subplot(121)
+    axes_1.plot(x, y, "b+", label=label)
+    plt.xlabel(xAxisTitle)  #
+    plt.ylabel(yAxisTitle)  # edit from axes
+    plt.title(title)
+    y_weights = (1 / error_y) * np.ones(np.size(y))
+    y_errors = error_y * np.ones(np.size(y))
+    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w=y_weights)
+    y_fitted = np.polyval(fit_parameters, x)
+    axes_2 = figure.add_subplot(122)
+    axes_1.plot(x, y_fitted)
+    axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+
+    plt.savefig(title + ".png")
 
 
 def splitArrays(channelNumber, array, marker):
@@ -125,15 +162,14 @@ def quadraticFit(x, y, ey):
     print(y)
     print(ey)
 
-    plt.plot(x, y, "b+")
+    #plt.plot(x, y, "b+")
 
     fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w=ey)
     fit_a = fit_parameters[0]  # quadratic term
     fit_b = fit_parameters[1]  # linear term
     fit_c = fit_parameters[2]  # constant term
 
-    plt.plot(x, fit_a * x ** 2 + fit_b * x + fit_c)
-    print(fit_errors)
+
 
     variance_a = fit_errors[0][0]
     variance_b = fit_errors[1][1]
@@ -164,22 +200,6 @@ def getZeroes(channel_number, data, marker):
         temp.append(zeroes[counter][0])
 
     return np.array(temp), np.array(differences)
-
-
-def plot_residuals(x, y, err_y):
-    y_sigma = err_y
-    # Create array of weights (1/sigma) for y values, with same size as data array y
-    y_weights = (1 / y_sigma) * np.ones(np.size(y))
-    # Create array of error values for the error bar plot below; each element is y_sigma
-    y_errors = y_sigma * np.ones(np.size(y))
-    # Perform fit using np.polyfit
-    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=y_weights)
-    # Create set of fitted y values using fit parameters from np.polyfit, and original x values
-    y_fitted = np.polyval(fit_parameters, x)
-    # Make plot of the residuals, using the 'errorbar' plotting
-
-    axes_1 = figure.add_subplot(111)
-    axes_1.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
 
 
 def getChiSqrt(fit_y, y, ey):
@@ -231,7 +251,7 @@ def main():
     # values of the wave number from calibrated spectrum
     # linear fitting of the c2h2 data #
     error_arr = np.ones(np.size(c2h2_zeroes))
-    m = np.array([3, 4, 5, 6, 7])
+    m = np.array([3, 4, 5, 6, 7])  # quantum number m
     print("Linear fitting for the c2h2 zeroes data against quantum number")
     results = linearFit(m, c2h2_zeroes, error_arr)
     chi_sqrt = getChiSqrt(m * results[0][0] + results[1][0], c2h2_zeroes, error_arr)
@@ -270,8 +290,6 @@ def main():
 
     # temperature calculations
     # water temperature
-    print("mememee")
-    print()
     temperature_error = 0
 
     # c2h2_zeroes, c2h2_zeroes_sigma
@@ -286,6 +304,18 @@ def main():
     temperature_error = np.abs(np.std(temp))
     temp = np.mean(temp)
     print("The temperature of c2h2 is: {0:0.09} +/- ".format(temp) + str(temperature_error))
+
+
+    # plots
+    plotData("C2H2 data linear fit", "Quantum number m", "Channel number", m, c2h2_zeroes, error_arr, "C2H2")
+    plotQuadraticFitData("C2H2 data polynomial fit", "Quantum number m", "Channel number", m, c2h2_zeroes, error_arr,
+                         "C2H2")
+
+    error_arr = np.delete(error_arr, 0)
+    plotData("Water data", "Channel Number", "Voltage", wave_number_water, water_zeroes, error_arr, "H2O")
+
+    # finish the lines by adding or removing different stuff
+    # make sure the graphs are consistent
 
 
 main()
