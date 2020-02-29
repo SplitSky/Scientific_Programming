@@ -21,7 +21,6 @@ water_file = 'h2o.dat'
 experiment_file = 'c2h2.dat'
 
 
-
 # functions
 def getData(filename):
     data = np.genfromtxt(filename, delimiter=',')
@@ -97,9 +96,8 @@ def findZero(x, array):
 
 
 def linearFit(x, y, ey):
-    #plt.plot(x, y)  #######################################################################################
     # Perform a linear fit and get the errors
-    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w= ey)
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=ey)
     fit_m = fit_parameters[0]
     fit_c = fit_parameters[1]
     # Here, we (rather laboriously) explicitly define some variables so you can see
@@ -112,7 +110,6 @@ def linearFit(x, y, ey):
     print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
     print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
 
-    # error = np.std(np.abs(y - (fit_m * x + fit_c)))  # returns the estimated error for the value # incorrect but still may be useful
     return [[fit_m, sigma_m], [fit_c, sigma_c]]
 
 
@@ -122,15 +119,14 @@ def quadraticFit(x, y, ey):
     print(y)
     print(ey)
 
-    plt.plot(x,y,"b+")
+    plt.plot(x, y, "b+")
 
+    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w=ey)
+    fit_a = fit_parameters[0]  # quadratic term
+    fit_b = fit_parameters[1]  # linear term
+    fit_c = fit_parameters[2]  # constant term
 
-    fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w= ey)
-    fit_a = fit_parameters[0] # quadratuc term
-    fit_b = fit_parameters[1] # linear term
-    fit_c = fit_parameters[2] # constant term
-
-    plt.plot(x, fit_a*x**2 + fit_b*x + fit_c)
+    plt.plot(x, fit_a * x ** 2 + fit_b * x + fit_c)
     print(fit_errors)
 
     variance_a = fit_errors[0][0]
@@ -140,22 +136,14 @@ def quadraticFit(x, y, ey):
     sigma_b = np.sqrt(variance_b)
     sigma_c = np.sqrt(variance_c)
     print('Quadratic fit of y = a*x**2 + b*x + c')
-    print('Quadratic term  A = {:04.10f} +/- {:04.10f}'.format(fit_a, sigma_a))
-    print('Linear term     B = {:04.10f} +/- {:04.10f}'.format(fit_b, sigma_b))
-    print('Intercept       C = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+    print('Quadratic term  A = {:04.10f} +/- {:0.9}'.format(fit_a, sigma_a))
+    print('Linear term     B = {:04.10f} +/- {:0.9}'.format(fit_b, sigma_b))
+    print('Intercept       C = {:04.10f} +/- {:0.9}'.format(fit_c, sigma_c))
     return [[fit_a, sigma_a], [fit_b, sigma_b], [fit_c, sigma_c]]
 
 
 def function(m, c, x):
     return m * x + c
-
-
-def addErrors(type, a, error_a, b, error_b, c):
-    # both functions return the absolute error
-    if type:  # this type is adding in quadrature
-        return np.sqrt(error_a ** 2 + error_b ** 2)
-    else:  # this is for adding percentage error
-        return c * np.sqrt((error_b / b) ** 2 + (error_a / a) ** 2)
 
 
 def getZeroes(channel_number, data, marker):
@@ -169,7 +157,6 @@ def getZeroes(channel_number, data, marker):
     temp = []
     for counter in range(0, len(zeroes)):
         temp.append(zeroes[counter][0])
-
 
     return np.array(temp)
 
@@ -189,27 +176,26 @@ def plot_residuals(x, y, err_y):
     axes_1 = figure.add_subplot(111)
     axes_1.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
 
-def getChiSqrt(fit_y,y,ey):
+
+def getChiSqrt(fit_y, y, ey):
     # all arrays are numpy arrays
     # returns the chi squared value
-    chi_sqrt = ( (y - fit_y) / (ey))**2
+    chi_sqrt = ((y - fit_y) / (ey)) ** 2
     return np.sum(chi_sqrt)
 
-def main():
 
-    ##          error = 1
+def main():
     h2o_data = getData(water_file)
     channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
-    # plt.plot(channel_number, h2o_data)
 
     wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
     wave_number_water = np.array(wave_number_water)
-    wave_number_water = wave_number_water*100 # unit conversion
+    wave_number_water = wave_number_water * 100  # unit conversion
 
     water_zeroes = getZeroes(channel_number, h2o_data, True)
 
     print("calibration fitting for the wave number against channel number plot")
-    fit_param_cal = linearFit(water_zeroes, wave_number_water,np.ones(np.size(water_zeroes)))
+    fit_param_cal = linearFit(water_zeroes, wave_number_water, np.ones(np.size(water_zeroes)))
     print(" ")
     '''
     enter the channel number and get the wave number
@@ -223,18 +209,19 @@ def main():
     error_arr = np.ones(np.size(c2h2_zeroes))
     m = np.array([3, 4, 5, 6, 7])
     print("Linear fitting for the c2h2 zeroes data against quantum number")
-    results = linearFit(m, c2h2_zeroes,error_arr)
-    chi_sqrt = getChiSqrt(m*results[0][0]+results[1][0],c2h2_zeroes,error_arr)
-    print("The value of chi squared is: {:04.10f}".format(chi_sqrt))
+    results = linearFit(m, c2h2_zeroes, error_arr)
+    chi_sqrt = getChiSqrt(m * results[0][0] + results[1][0], c2h2_zeroes, error_arr)
+    print("The value of chi squared is: {:0.9}".format(chi_sqrt))
     print(" ")
 
     print("Quadratic fitting for the c2h2 zeroes data against quatum number")
-    error_arr = np.ones(np.size(c2h2_zeroes)) # re declare remove later
-    results_2 = quadraticFit(m, c2h2_zeroes,error_arr)
-    chi_sqrt = getChiSqrt(results_2[0][0]*m**2 + results_2[1][0]*m + results_2[2][0], c2h2_zeroes, error_arr)
-    print("The value of chi squared is: {:04.10f}".format(chi_sqrt))
+    error_arr = np.ones(np.size(c2h2_zeroes))  # re declare remove later
+    results_2 = quadraticFit(m, c2h2_zeroes, error_arr)
+    chi_sqrt = getChiSqrt(results_2[0][0] * m ** 2 + results_2[1][0] * m + results_2[2][0], c2h2_zeroes, error_arr)
+    print("The value of chi squared is: {:0.9}".format(chi_sqrt))
     print(" ")
 
+    # this variable redeclaration is made to make the code readable
     A = results_2[2][0]
     A_sigma = results_2[2][1]
     B = results_2[1][0]
@@ -244,22 +231,21 @@ def main():
     F_sigma = fit_param_cal[0][1]
     F = fit_param_cal[0][0]
 
-    I0 = (h/ (2*np.pi))**2 / ((F*h*c)*(B-C))
-    I1 = (h/ (2*np.pi))**2 / ((F*h*c)*(B+C))
+    I0 = (h / (2 * np.pi)) ** 2 / ((F * h * c) * (B - C))
+    I1 = (h / (2 * np.pi)) ** 2 / ((F * h * c) * (B + C))
 
-    mom_in_err0 = np.sqrt(I0**2 * ((F_sigma/F)**2 + (np.sqrt(B_sigma**2 + C_sigma**2)/ (B + C) )**2))
-    mom_in_err1 = np.sqrt(I0**2 * ((F_sigma/F)**2 + (np.sqrt(B_sigma**2 + C_sigma**2)/ (B - C) )**2))
+    mom_in_err0 = np.sqrt(I0 ** 2 * ((F_sigma / F) ** 2 + (np.sqrt(B_sigma ** 2 + C_sigma ** 2) / (B + C)) ** 2))
+    mom_in_err1 = np.sqrt(I0 ** 2 * ((F_sigma / F) ** 2 + (np.sqrt(B_sigma ** 2 + C_sigma ** 2) / (B - C)) ** 2))
 
-    delta_I = np.abs( (h)**2/(F*h*c) * (2*C/B**2) )
-    delta_I_err = delta_I **2 * ( (F_sigma/F)**2 + (2*B_sigma/B)**2 + (C_sigma/C)**2 )
+    delta_I = np.abs((h) ** 2 / (F * h * c) * (2 * C / B ** 2))
+    delta_I_err = delta_I ** 2 * ((F_sigma / F) ** 2 + (2 * B_sigma / B) ** 2 + (C_sigma / C) ** 2)
     delta_I_err = np.sqrt(delta_I_err)
 
     print("moment of inertia I_0 is: {:0.9} +/- {:0.9}".format(I0, mom_in_err0))
     print("moment of inertia I_1 is: {:0.9} +/- {:0.9}".format(I1, mom_in_err1))
     print("the difference in moment of inertia is: {:0.9} +/- {:0.9}".format(delta_I, delta_I_err))
 
-
-
+    # temperature calculations
 
 
 main()
