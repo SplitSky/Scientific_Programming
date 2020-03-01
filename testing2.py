@@ -38,19 +38,7 @@ def getData(filename):
     return data
 
 
-def plotDataSimple(title, xAxisTitle, yAxisTitle, x, y):
-    figure = plt.figure()
-    axis_1 = figure.add_subplot(111)
-    axis_1.plot(x, y, "r+")
-    axis_1.plot(x, y)
-    axis_1.xlabel(xAxisTitle)
-    axis_1.ylabel(yAxisTitle)
-    axis_1.title = title
-    plt.savefig(title + ".png")
-
-
 def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
-    plt.rcParams["figure.figsize"] = (6, 3)
 
     figure = plt.figure()
     axes_1 = figure.add_subplot(121)
@@ -61,15 +49,16 @@ def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     y_weights = (1 / error_y) * np.ones(np.size(y))
     y_errors = error_y * np.ones(np.size(y))
     fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=y_weights)
+
     y_fitted = np.polyval(fit_parameters, x)
+    axes_1.plot(x, y_fitted)
     axes_2 = figure.add_subplot(122)
-    axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+    axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='b+')
 
     plt.savefig(title + ".png")
 
 
 def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
-    plt.rcParams["figure.figsize"] = (6, 3)
 
     figure = plt.figure()
     axes_1 = figure.add_subplot(121)
@@ -83,7 +72,7 @@ def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     y_fitted = np.polyval(fit_parameters, x)
     axes_2 = figure.add_subplot(122)
     axes_1.plot(x, y_fitted)
-    axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='oy')
+    axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='b+')
 
     plt.savefig(title + ".png")
 
@@ -162,7 +151,7 @@ def quadraticFit(x, y, ey):
     print(y)
     print(ey)
 
-    #plt.plot(x, y, "b+")
+
 
     fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w=ey)
     fit_a = fit_parameters[0]  # quadratic term
