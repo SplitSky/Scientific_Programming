@@ -28,6 +28,11 @@ experiment_file = 'c2h2.dat'
 
 # functions
 def getData(filename):
+    '''
+    variable name               type                    description
+    temp                        list                    stores the data entries
+    data                        numpy array             stores the complete set of data
+    '''
     data = np.genfromtxt(filename, delimiter=',')
     temp = []
     for counter in range(0, len(data), 1):
@@ -41,12 +46,29 @@ def getData(filename):
 
 
 def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
+    '''
+    variable name               type                    description
+    figure                      object                  stores the plot object
+    axes_1                      object                  stores the subplot object (child of figure)
+    axes_2                      object                  stores the subplot object (child of figure)
+    y_weights                   numpy array             stores the weights for the residual plot
+    y_errors                    numpy array             stores the array of errors for the plot considered
+    fit_parameters              list                    stores the fitting parameters for the plot
+    fit_errors                  list                    stores the covariance matrix of the errors
+    y_fitted                    numpy array             stores the fitted y-value used for plotting
+    title                       string                  the title of the plot
+    xAxisTitle                  string                  x-axis title
+    yAxisTitle                  string                  y-axis title
+    x                           numpy array             the x-value of the plot
+    y                           numpy array             the y-values of the plot
+    error_y                     numpy array             the errors of the y-values
+    '''
     figure = plt.figure()
     axes_1 = figure.add_subplot(121)
     axes_1.plot(x, y, "b+", label=label)
     axes_1.errorbar(x, y, error_y, fmt="b+")
-    plt.xlabel(xAxisTitle)  #
-    plt.ylabel(yAxisTitle)  # edit from axes
+    plt.xlabel(xAxisTitle)
+    plt.ylabel(yAxisTitle)
     plt.title(title)
     y_weights = (1 / error_y) * np.ones(np.size(y))
     y_errors = error_y * np.ones(np.size(y))
@@ -63,11 +85,28 @@ def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
 
 
 def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
+    '''
+    variable name               type                    description
+    figure                      object                  stores the plot object
+    axes_1                      object                  stores the subplot object (child of figure)
+    axes_2                      object                  stores the subplot object (child of figure)
+    y_weights                   numpy array             stores the weights for the residual plot
+    y_errors                    numpy array             stores the array of errors for the plot considered
+    fit_parameters              list                    stores the fitting parameters for the plot
+    fit_errors                  list                    stores the covariance matrix of the errors
+    y_fitted                    numpy array             stores the fitted y-value used for plotting
+    title                       string                  the title of the plot
+    xAxisTitle                  string                  x-axis title
+    yAxisTitle                  string                  y-axis title
+    x                           numpy array             the x-value of the plot
+    y                           numpy array             the y-values of the plot
+    error_y                     numpy array             the errors of the y-values
+    '''
     figure = plt.figure()
     axes_1 = figure.add_subplot(121)
     axes_1.plot(x, y, "b+", label=label)
     axes_1.errorbar(x, y, error_y)
-    plt.ylabel(yAxisTitle)  # edit from axes
+    plt.ylabel(yAxisTitle)
     plt.xlabel(xAxisTitle)
     plt.title(title)
     y_weights = (1 / error_y) * np.ones(np.size(y))
@@ -84,6 +123,13 @@ def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
 
 
 def splitArrays(channelNumber, array, marker):
+    '''
+    variable name               type                    description
+    allArrays                   list                    stores the sliced arrays
+    channelNumber               numpy array             stores the x-values of the data
+    array                       numpy array             stores the complete set of data
+    marker                      boolean                 determines which slicing to use
+    '''
     # splits the array into the peaks for the h2o data set and the c2h2 data set
     allArrays = []
     if marker:
@@ -98,11 +144,17 @@ def splitArrays(channelNumber, array, marker):
         allArrays.append([channelNumber[1200:1300], array[1200:1300]])
         allArrays.append([channelNumber[1580:1650], array[1580:1650]])
 
-    # "colour codes" the plots
+    # slices the plots
     return allArrays
 
 
 def search(arr, x):
+    '''
+    variable name               type                    description
+    i                           integer                 counter
+    arr                         list                    array
+    x                           float                   the value being searched
+    '''
     # linear search function
     for i in range(len(arr)):
         if arr[i] == x:
@@ -111,29 +163,48 @@ def search(arr, x):
 
 
 def findZero(x, array):
+    '''
+    variable name               type                    description
+    temp2                       numpy array             stores the data set
+    index1                      int                     stores the index of the maximum
+    index2                      int                     stores the index of the minimum
+    cut_array                   list                    stores the sliced array between the peaks
+    x_temp                      list                    stores the corresponding sliced x-coordinates
+    temp                        list                    stores the x-values for interpolation
+    interpolated_y              list                    stores the interpolated values of y
+    fitted_parameters           list                    stores the parameters from the linear fitting
+    zero                        float                   stores the value at which the curve crosses the 0V point
+    sigma                       float                   stores the width of the peak
+    '''
+
     temp2 = array - 5
     # finds and returns the channel number at which the section of the array passes a zero
-
     index2 = search(temp2, np.min(temp2))
     index1 = search(temp2, np.max(temp2))
-
     cut_array = temp2[index2:index1]
     x_temp = x[index2:index1]
-
     temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
     interpolated_y = np.interp(temp, x_temp, cut_array)
-
     fitted_parameters = np.polyfit(temp, interpolated_y, 1)
     zero = -1 * fitted_parameters[1] / fitted_parameters[0]
-
-    #
     sigma = np.abs(array[index2] - array[index1])
-    #
 
-    return int(np.rint(zero)), sigma  # returns channel number and difference for temp calculation
+    return int(np.rint(zero)), sigma  # returns channel number and difference for temperature calculation
 
 
 def linearFit(x, y, ey):
+    '''
+    variable name               type                    description
+    x                           numpy array             stores the x values of the data
+    y                           numpy array             stores the y values of the data
+    ey                          numpy array             stores the errors on the y values
+    fit_parameters              list                    stores the fitting parameters for the plot
+    fit_errors                  list                    stores the covariance matrix of the errors
+    variance_m                  float                   stores the variance of the plot gradient
+    variance_c                  float                   stores the variance of the plot intercept
+    sigma_m                     float                   stores the error on the gradient
+    sigma_c                     float                   stores th error on the intercept
+    '''
     # Perform a linear fit and get the errors
     fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True, w=ey)
     fit_m = fit_parameters[0]
@@ -152,6 +223,23 @@ def linearFit(x, y, ey):
 
 
 def quadraticFit(x, y, ey):
+    '''
+    variable name               type                    description
+    x                           numpy array             stores the x values of the data
+    y                           numpy array             stores the y values of the data
+    ey                          numpy array             stores the errors on the y values
+    fit_parameters              list                    stores the fitting parameters for the plot
+    fit_errors                  list                    stores the covariance matrix of the errors
+    variance_a                  float                   stores the variance of the quadratic term
+    variance_b                  float                   stores the variance of the linear term
+    variance_c                  float                   stores the variance of the constant term
+    sigma_a                     float                   stores the error on the quadratic term
+    sigma_b                     float                   stores th error on the linear term
+    sigma_c                     float                   the error on the constant term
+    fit_a                       float                   stores the value of the quadratic  term
+    fit_b                       float                   stores the value of the linear term
+    fit_c                       float                   stores the value of the constant term
+    '''
     # Perform a quadratic fit and get the errors
 
     fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w=ey)
@@ -173,6 +261,16 @@ def quadraticFit(x, y, ey):
 
 
 def getZeroes(channel_number, data, marker):
+    '''
+    variable name               type                    description
+    :param channel_number:      numpy array             stores the channel numbers
+    :param data:                numpy array             stores the complete set of data
+    :param marker:              boolean                 used for splitting arrays
+    zeroes                      list                    stores the points at which the data crosses the 5V line
+    differences                 list                    stores the peak widths
+    temp                        float/list              temporary variable
+    temp2                       float                   stores the peak width
+    '''
     peaks_arrays = splitArrays(channel_number, data, marker)  # data arrays for the peaks
     zeroes = []  # the points where the graph crosses the 5V point
     differences = []
@@ -191,32 +289,51 @@ def getZeroes(channel_number, data, marker):
 
 
 def getChiSqrt(fit_y, y, ey):
+    '''
+    variable name               type                    description
+    fit_y                       numpy array             stores the fitted y-values
+    y                           numpy array             stores the y values of the data
+    ey                          numpy array             stores the errors on the y values
+
+    '''
     # all arrays are numpy arrays
     # returns the chi squared value
     chi_sqrt = ((y - fit_y) / (ey)) ** 2
     return np.sum(chi_sqrt)
 
 
-def getPeakWidth(x, array):
-    temp2 = array - 5
-    # finds and returns the channel number at which the section of the array passes a zero
-
-    index2 = search(temp2, np.min(temp2))
-    index1 = search(temp2, np.max(temp2))
-
-    cut_array = temp2[index2:index1]
-    x_temp = x[index2:index1]
-
-    temp = np.linspace(x_temp[0], x_temp[len(x_temp) - 1], 100)
-    interpolated_y = np.interp(temp, x_temp, cut_array)
-
-    fitted_parameters = np.polyfit(temp, interpolated_y, 1)
-    zero = -1 * fitted_parameters[1] / fitted_parameters[0]
-
-    return int(np.rint(zero))  # returns channel number and the sigma
-
-
 def main():
+    '''
+    variable name               type                    description
+    h2o_data                    numpy array             holds the water data
+    channel_number              numpy array             holds the channel numbers
+    wave_number_water           numpy array             wave numbers for water
+    water_zeroes                numpy array             water 5V intersection points
+    water_zeroes_sigma          numpy array             the peak widths for water
+    fit_param_cal               numpy array             fit parameters of the calibration fit
+    chi_sqrt                    float                   chi squared
+    c2h2_data                   numpy array             the ethyne data
+    c2h2_zeroes                 numpy array             the ethyne 5V intersection points
+    m                           numpy array             quantum number j
+    results                     numpy array             linear fit parameters of ethyne
+    error_arr                   numpy array             the error array
+    results_2                   numpy array             quadratic fit of ethyne
+    B                           float                   fitting parameter
+    B_sigma                     float                   fitting parameter error
+    C                           float                   fitting parameter
+    C_sigma                     float                   fitting parameter error
+    F                           float                   calibration constant
+    F_sigma                     float                   calibration constant error
+    I0                          float                   moment of inertia
+    I1                          float                   moment of inertia
+    mom_in_err0                 float                   moment of inertia error
+    mom_in_err1                 float                   moment of inertia error
+    delta_I                     float                   the change in the moments of inertia
+    delta_I_err                 float                   the change in the moments of inertia error
+    temp                        float                   temperatures
+    temperature_error           float                   the error in temperatures
+    '''
+
     h2o_data = getData(water_file)
     channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
 
@@ -264,8 +381,6 @@ def main():
     C_sigma = results_2[0][1]
     F_sigma = fit_param_cal[0][1]
     F = 1 / fit_param_cal[0][0]
-
-
 
     I0 = (h_bar) ** 2 / ((F * h * c) * (B - C))
     I1 = (h_bar) ** 2 / ((F * h * c) * (B + C))
