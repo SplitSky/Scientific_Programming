@@ -265,6 +265,8 @@ def main():
     F_sigma = fit_param_cal[0][1]
     F = 1 / fit_param_cal[0][0]
 
+
+
     I0 = (h_bar) ** 2 / ((F * h * c) * (B - C))
     I1 = (h_bar) ** 2 / ((F * h * c) * (B + C))
 
@@ -287,13 +289,13 @@ def main():
     temp = np.sqrt(m_e * c ** 2 / k) * (water_zeroes_sigma / water_zeroes)
     temperature_error = np.abs(np.std(temp))
     temp = np.mean(temp)
-    print("The temperature of water is: {0:.09} +/-  K".format(temp) + str(temperature_error))
+    print("The temperature of water is: {0:.09} +/-  ".format(temp) + str(temperature_error) + " K")
 
     # c2h2 temperature
     temp = np.sqrt(m_e * c ** 2 / k) * (c2h2_zeroes_sigma / c2h2_zeroes)
     temperature_error = np.abs(np.std(temp))
     temp = np.mean(temp)
-    print("The temperature of c2h2 is: {0:0.09} +/-  K".format(temp) + str(temperature_error))
+    print("The temperature of c2h2 is: {0:0.09} +/-  ".format(temp) + str(temperature_error) + " K")
 
     # plots
     plotData("C2H2 data linear fit", "Quantum number m", "Channel number", m, c2h2_zeroes, error_arr, "C2H2")
@@ -301,7 +303,8 @@ def main():
                          "C2H2")
 
     error_arr = np.delete(error_arr, 0)
-    plotData("Water data", "Wave number / $m^{-1}$", "Channel number", wave_number_water, water_zeroes, error_arr, "H2O")
+    plotData("Water data", "Wave number / $m^{-1}$", "Channel number", wave_number_water, water_zeroes, error_arr,
+             "H2O")
 
     # finish the lines by adding or removing different stuff
     # make sure the graphs are consistent
