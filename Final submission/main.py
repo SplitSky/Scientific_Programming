@@ -154,7 +154,6 @@ def linearFit(x, y, ey):
 def quadraticFit(x, y, ey):
     # Perform a quadratic fit and get the errors
 
-
     fit_parameters, fit_errors = np.polyfit(x, y, 2, cov=True, w=ey)
     fit_a = fit_parameters[0]  # quadratic term
     fit_b = fit_parameters[1]  # linear term
@@ -221,17 +220,17 @@ def main():
     h2o_data = getData(water_file)
     channel_number = np.arange(1, len(h2o_data) + 1)  # get the x-coordinates
 
-    wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]
+    wave_number_water = [12683.782, 12685.540, 12685.769, 12687.066]  # y-coordinate for calibration
     wave_number_water = np.array(wave_number_water)
-    wave_number_water = wave_number_water * 100  # unit conversion
+    wave_number_water = wave_number_water * 100  # unit conversion to SI
 
     water_zeroes, water_zeroes_sigma = getZeroes(channel_number, h2o_data, True)
 
     print("calibration fitting for the wave number against channel number plot")
     fit_param_cal = linearFit(wave_number_water, water_zeroes, np.ones(np.size(water_zeroes)))
-    chi_sqrt = getChiSqrt(fit_param_cal[0][0] * water_zeroes + fit_param_cal[1][0], wave_number_water,
+    chi_sqrt = getChiSqrt(fit_param_cal[0][0] * wave_number_water + fit_param_cal[1][0], water_zeroes,
                           np.ones(np.size(water_zeroes)))
-    print("The value of chi squared is: {:0.16}".format(chi_sqrt))
+    print("The value of chi squared is: {:0.9}".format(chi_sqrt))
     print(" ")
     '''
     enter the channel number and get the wave number
@@ -250,7 +249,7 @@ def main():
     print("The value of chi squared is: {:0.16}".format(chi_sqrt))
     print(" ")
 
-    print("Quadratic fitting for the c2h2 zeroes data against quatum number")
+    print("Quadratic fitting for the c2h2 zeroes data against quantum number")
     error_arr = np.ones(np.size(c2h2_zeroes))  # re declare remove later
     results_2 = quadraticFit(m, c2h2_zeroes, error_arr)
     chi_sqrt = getChiSqrt(results_2[0][0] * m ** 2 + results_2[1][0] * m + results_2[2][0], c2h2_zeroes, error_arr)
@@ -264,7 +263,7 @@ def main():
     C = results_2[0][0]
     C_sigma = results_2[0][1]
     F_sigma = fit_param_cal[0][1]
-    F = 1 / fit_param_cal[0][0]  # edit
+    F = 1 / fit_param_cal[0][0]
 
     I0 = (h_bar) ** 2 / ((F * h * c) * (B - C))
     I1 = (h_bar) ** 2 / ((F * h * c) * (B + C))
@@ -287,15 +286,14 @@ def main():
     # c2h2_zeroes, c2h2_zeroes_sigma
     temp = np.sqrt(m_e * c ** 2 / k) * (water_zeroes_sigma / water_zeroes)
     temperature_error = np.abs(np.std(temp))
-    print(temperature_error)
     temp = np.mean(temp)
-    print("The temperature of water is: {0:.09} +/- ".format(temp) + str(temperature_error))
+    print("The temperature of water is: {0:.09} +/-  K".format(temp) + str(temperature_error))
 
     # c2h2 temperature
     temp = np.sqrt(m_e * c ** 2 / k) * (c2h2_zeroes_sigma / c2h2_zeroes)
     temperature_error = np.abs(np.std(temp))
     temp = np.mean(temp)
-    print("The temperature of c2h2 is: {0:0.09} +/- ".format(temp) + str(temperature_error))
+    print("The temperature of c2h2 is: {0:0.09} +/-  K".format(temp) + str(temperature_error))
 
     # plots
     plotData("C2H2 data linear fit", "Quantum number m", "Channel number", m, c2h2_zeroes, error_arr, "C2H2")
@@ -303,7 +301,7 @@ def main():
                          "C2H2")
 
     error_arr = np.delete(error_arr, 0)
-    plotData("Water data", "Wave number", "Channel number", wave_number_water, water_zeroes, error_arr, "H2O")
+    plotData("Water data", "Wave number / $m^{-1}$", "Channel number", wave_number_water, water_zeroes, error_arr, "H2O")
 
     # finish the lines by adding or removing different stuff
     # make sure the graphs are consistent
