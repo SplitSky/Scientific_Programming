@@ -14,6 +14,7 @@ import random
 plt.rcParams.update({'font.size': 14})
 plt.style.use('default')
 figure = plt.figure()
+plt.rcParams.update({'errorbar.capsize': 2})
 
 # constants
 c = 299792458  # speed of light in ms^-1
@@ -43,6 +44,7 @@ def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     figure = plt.figure()
     axes_1 = figure.add_subplot(121)
     axes_1.plot(x, y, "b+", label=label)
+    axes_1.errorbar(x, y, error_y, fmt="b+")
     plt.xlabel(xAxisTitle)  #
     plt.ylabel(yAxisTitle)  # edit from axes
     plt.title(title)
@@ -53,6 +55,8 @@ def plotData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     y_fitted = np.polyval(fit_parameters, x)
     axes_1.plot(x, y_fitted)
     axes_2 = figure.add_subplot(122)
+    axes_2.set_xlabel(xAxisTitle)
+    axes_2.set_ylabel(yAxisTitle)
     axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='b+')
 
     plt.savefig(title + ".png")
@@ -62,8 +66,9 @@ def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     figure = plt.figure()
     axes_1 = figure.add_subplot(121)
     axes_1.plot(x, y, "b+", label=label)
-    plt.xlabel(xAxisTitle)  #
+    axes_1.errorbar(x, y, error_y)
     plt.ylabel(yAxisTitle)  # edit from axes
+    plt.xlabel(xAxisTitle)
     plt.title(title)
     y_weights = (1 / error_y) * np.ones(np.size(y))
     y_errors = error_y * np.ones(np.size(y))
@@ -71,6 +76,8 @@ def plotQuadraticFitData(title, xAxisTitle, yAxisTitle, x, y, error_y, label):
     y_fitted = np.polyval(fit_parameters, x)
     axes_2 = figure.add_subplot(122)
     axes_1.plot(x, y_fitted)
+    axes_2.set_xlabel(xAxisTitle)
+    axes_2.set_ylabel(yAxisTitle)
     axes_2.errorbar(x, y - y_fitted, yerr=y_errors, fmt='b+')
 
     plt.savefig(title + ".png")
@@ -295,7 +302,7 @@ def main():
                          "C2H2")
 
     error_arr = np.delete(error_arr, 0)
-    plotData("Water data", "Channel Number", "Voltage", wave_number_water, water_zeroes, error_arr, "H2O")
+    plotData("Water data", "Wave number", "Channel number", wave_number_water, water_zeroes, error_arr, "H2O")
 
     # finish the lines by adding or removing different stuff
     # make sure the graphs are consistent
