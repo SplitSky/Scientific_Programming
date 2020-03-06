@@ -19,7 +19,7 @@ plt.rcParams.update({'errorbar.capsize': 2})
 
 m = 1.2
 k = 0.8
-b = 0.08
+b = 0
 
 T = 221
 h = 0.01
@@ -32,29 +32,29 @@ def solver(x_init,v_init):
     if (k/m) > temp: # imaginary
         marker = 3
         K = complex(-b/2*m, np.sqrt((k/m) - b**2 / (4*m**2)))
-        a = K.real()
-        b = np.abs(K.imag())
+        a = K.real
+        b_prime = np.abs(K.imag)
         #initial conditions
         A = (v_init-x_init*b)/(a-b)
         B = (v_init-x_init*a)/(b-a)
         return a,b,marker,A,B
-    elif (k/m) = temp:
+    elif (k/m) == temp:
         marker = 2 # repeated real solutions
-        K = -b / 2m
+        K = -b / 2*m
         # initial conditions
         A = x_init
         return K,0,marker,A,B
     elif (k/m) < temp:
         marker = 1
         a = -b/2*m + np.sqrt((k/m) - b**2 / (4*m**2))
-        b = -b/2*m - np.sqrt((k/m) - b**2 / (4*m**2))
+        b_prime = -b/2*m - np.sqrt((k/m) - b**2 / (4*m**2))
         # initial conditions
         A = v_init / b
         B = x_init
         return a,b,marker,A,B
     
-def Position_t(t):
-    k_1, k_2, marker,A,B = solver()
+def Position_t(t,x_init, v_init):
+    k_1, k_2, marker,A,B = solver(x_init, v_init)
     if marker == 1:
         return A * np.exp(k_1*t) + B* np.exp(k_2*t)
     elif marker == 2:
@@ -62,8 +62,6 @@ def Position_t(t):
     elif marker == 3:
         return np.exp(k_1) * (A*np.sin(k_2*t) + B*np.cos(k_2*t))
 
-def initialCond(x_init, v_init, marker):
-    
 
 def Euler(steps,x_init, v_init):
     x = np.zeros(steps)
@@ -95,6 +93,11 @@ def main():
     E = Energy_t(x,v)
     plot(x,E)
     plot(v,E)
+    t = np.linspace(0,100,1000000)
+    print(t)
+    position = Position_t(t,5,1)
+    print(position)
+    plot(t,position)
     
 main()
 plt.show()
