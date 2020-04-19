@@ -44,6 +44,9 @@ class SHO(object):
         self.analytic_solution()
         self.data = []
 
+
+
+
     def getCoefficients(self):
         return self.__coefficients
 
@@ -317,6 +320,7 @@ class SHO(object):
             axes_1.plot(self.data[0][counter], self.data[1][counter])
             energy.append(E)
             axes_2.plot(t, E)
+
 
 
 def main():
