@@ -53,6 +53,13 @@ class SHO(object):
         self.analytical_data = []
         self.time = np.array(range(0, self.no_steps, 1)) * self.h
 
+    def runSimulation(self):
+        self.Euler_integrator()
+        self.Better_Euler_integrator()
+        self.Verlet_integrator()
+        self.Euler_Cromer_integrator()
+        print("Simulation has been executed")
+
     def getCoefficients(self):
         return self.__coefficients
 
@@ -93,7 +100,8 @@ class SHO(object):
             velocity_series.append(temp)
             position_series.append(x_n + self.h * temp)
 
-        self.Euler_Cromer_data = [position_series, velocity_series,self.energy_function(position_series, velocity_series)]
+        self.Euler_Cromer_data = [position_series, velocity_series,
+                                  self.energy_function(position_series, velocity_series)]
         print(np.array(self.Euler_Cromer_data))
 
     def Verlet_integrator(self):
@@ -125,6 +133,14 @@ class SHO(object):
         temp_vel = np.array(velocity)
         return 0.5 * self.m * temp_vel ** 2 + 0.5 * self.k * temp_pos ** 2
 
+    def convert_array(self, array):
+        # operates on 1 dimensional arrays
+        temp = []
+        for entry in array:
+            temp.append(entry)
+
+        return temp
+
     def analytic_solution(self):
         # creates the analytic solution position series
         t_0 = 0
@@ -135,21 +151,13 @@ class SHO(object):
         print("solution found")
         self.analytic_energy = self.energy_function(self.analytic_series_pos, self.analytic_series_vel)
 
-    def convert_array(self, array):
-        # operates on 1 dimensional arrays
-        temp = []
-        for entry in array:
-            temp.append(entry)
-
-        return temp
-
     def solver(self):
         A = 0
         B = 0
         temp = (self.b ** 2 / (4 * self.m ** 2))
         if self.b == 0:
             marker = 1
-            print("o")
+            print("The analytic solution is a simple harmonic motion")
             omega = np.sqrt(self.k / self.m)
             A = self.init_v / omega
             B = self.init_x
@@ -158,34 +166,32 @@ class SHO(object):
             # v = omega A cos(omega t) - omega*B*sin(omega t)
 
             self.__coefficients = [omega, 0, marker, A, B]
-
         elif (self.k / self.m) > temp:  # imaginary
-            print("a")
+            print("The solution is an undamped oscillation")
             marker = 3
+
             p = -1 * self.b / 2 * self.m
             q = np.sqrt((self.k / self.m) - self.b ** 2 / (4 * self.m ** 2))
             # initial conditions
-            A = self.init_v - self.init_x
+            A = (self.init_x * p - self.init_v) / q
             B = self.init_x
-
             self.__coefficients = [p, q, marker, A, B]
-
         elif (self.k / self.m) == temp:
-            print("b")
+            print("The solution is a critically damped oscillation")
             marker = 2  # repeated real solutions
             K = -1 * self.b / 2 * self.m
             # initial conditions
             A = self.init_x
             self.__coefficients = [K, 0, marker, A, B]
-
-        elif (self.k / self.m) < temp:  # normal solution (two real distinct roots)
+        elif (self.k / self.m) < temp:  # overdamped oscillation
             marker = 4
-
-            p = -1 * self.b / 2 * self.m + np.sqrt((self.k / self.m) - self.b ** 2 / (4 * self.m ** 2))
-            q = -1 * self.b / 2 * self.m - np.sqrt((self.k / self.m) - self.b ** 2 / (4 * self.m ** 2))
+            print("The solution is an overdamped oscillation")
+            p = -1 * self.b / 2 * self.m + np.sqrt(-(self.k / self.m) + self.b ** 2 / (4 * self.m ** 2))
+            q = -1 * self.b / 2 * self.m - np.sqrt(-(self.k / self.m) + self.b ** 2 / (4 * self.m ** 2))
 
             # initial conditions
             A = (q * self.init_x - self.init_v) / (q - p)
+
             B = self.init_x - A
             self.__coefficients = [p, q, marker, A, B]
 
@@ -196,7 +202,6 @@ class SHO(object):
         A = self.__coefficients[3]
         B = self.__coefficients[4]
         if marker == 1:  # no damping solution
-            print("d")
             return A * np.sin(self.natural_angular_frequency * t) + B * np.cos(self.natural_angular_frequency * t)
         elif marker == 2:  # regular damping (complex)
             return A * np.exp(k_1 * t)
@@ -217,7 +222,7 @@ class SHO(object):
             return A * k_1 * np.exp(k_1 * t)
         elif marker == 3:  # repeated root
             return k_1 * np.exp(k_1 * t) * (A * np.sin(k_2 * t) + B * np.cos(k_2 * t)) + np.exp(k_1 * t) * (
-                    A * k_2 * np.cos(k_2 * t) - B * k_1 * np.sin(k_2 * t))
+                    A * k_2 * np.cos(k_2 * t) - B * k_2 * np.sin(k_2 * t))
         elif marker == 4:  # two real distinct solutions
             return A * k_1 * np.exp(k_1 * t) + B * k_2 * np.exp(k_2 * t)
 
@@ -235,10 +240,6 @@ class SHO(object):
         axes_6.set_ylabel("energy/ J")
         figure3.legend()
 
-        self.Euler_integrator()
-        self.Better_Euler_integrator()
-        self.Verlet_integrator()
-        self.Euler_Cromer_integrator()
         # Euler method
         # plotting
         figure = plt.figure()
@@ -276,7 +277,7 @@ class SHO(object):
         axes_7.plot(self.Verlet_data[0], self.Verlet_data[1], label="Verlet")
         axes_7.set_xlabel("position/ m")
         axes_7.set_ylabel("velocity/ ms^-1")
-        #energy plotting
+        # energy plotting
         axes_8 = figure4.add_subplot(122)
         axes_8.plot(self.time, self.Verlet_data[2])
         axes_8.set_xlabel("time/ s")
@@ -289,7 +290,7 @@ class SHO(object):
         axes_9.plot(self.Euler_Cromer_data[0], self.Euler_Cromer_data[1], label="Euler Cromer Method")
         axes_9.set_xlabel("position/ m")
         axes_9.set_ylabel("velocity/ ms^-1")
-        #energy plotting
+        # energy plotting
         axes_10 = figure5.add_subplot(122)
         axes_10.plot(self.time, self.Euler_Cromer_data[2])
         axes_10.set_xlabel("time/ s")
@@ -307,14 +308,21 @@ class SHO(object):
         axes_2.set_xlabel("time/ s")
         axes_2.set_ylabel("Energy/ J")
 
-        axes_1.plot(self.Euler_data[0], self.Euler_data[1])
+        axes_1.plot(self.Euler_data[0], self.Euler_data[1], label="Euler")
         axes_2.plot(self.time, self.Euler_data[2])
 
-        axes_1.plot(self.B_Euler_data[0], self.B_Euler_data[1])
+        axes_1.plot(self.B_Euler_data[0], self.B_Euler_data[1], label="Improved Euler")
         axes_2.plot(self.time, self.B_Euler_data[2])
 
-        axes_1.plot(self.Verlet_data[0], self.Verlet_data[1])
+        axes_1.plot(self.Verlet_data[0], self.Verlet_data[1], label="Verlet")
         axes_2.plot(self.time, self.Verlet_data[2])
+
+        axes_1.plot(self.Euler_Cromer_data[0], self.Euler_Cromer_data[1], label="Euler Cromer")
+        axes_2.plot(self.time, self.Euler_Cromer_data[2])
+
+        axes_1.plot(self.analytic_series_pos, self.analytic_series_vel, label="Analytic solution")
+        axes_2.plot(self.time, self.analytic_energy)
+        figure.legend()
 
     def save_data(self):
         # all files are saved as json dictionaries in the format "name of method": [position, velocity, energy]
@@ -326,7 +334,8 @@ class SHO(object):
         data["Euler"] = [self.Euler_data[0], self.Euler_data[1], self.convert_array(self.Euler_data[2])]
         data["Better Euler"] = [self.B_Euler_data[0], self.B_Euler_data[1], self.convert_array(self.B_Euler_data[2])]
         data["Verlet"] = [self.Verlet_data[0], self.Verlet_data[1], self.convert_array(self.Verlet_data[2])]
-        data["Euler Cromer"] = [self.Euler_Cromer_data[0], self.Euler_Cromer_data[1],self.convert_array(self.Euler_Cromer_data[2])]
+        data["Euler Cromer"] = [self.Euler_Cromer_data[0], self.Euler_Cromer_data[1],
+                                self.convert_array(self.Euler_Cromer_data[2])]
         data["coefficients"] = [self.h, self.no_steps, self.b, self.m, self.k, self.init_x,
                                 self.init_v]  # h, T, b, m, k, x, v
 
@@ -335,27 +344,75 @@ class SHO(object):
         outfile.close()
 
     def load_data(self):
-        with open(self.fileNameLoad) as json_file:
-            data = json.load(json_file)
-            self.Euler_data = data["Euler"]
-            self.B_Euler_data = data["Better Euler"]
-            self.Verlet_data = data["Verlet"]
-            self.analytic_series_pos = data["Analytic"][0]
-            self.analytic_series_vel = data["Analytic"][1]
-            self.analytic_energy = data["Analytic"][2]
-            self.Euler_Cromer_data = data["Euler Cromer"]
-            self.h, self.no_steps, self.b, self.m, self.k, self.init_x, self.init_v = data["coefficients"]
-            print(self.h)
-            print(self.no_steps)
-            print(self.b)
-            print(self.m)
-            print(self.k)
-            print(self.init_x)
-            print(self.init_v)
+        try:
+            with open(self.fileNameLoad) as json_file:
+                data = json.load(json_file)
+                self.Euler_data = data["Euler"]
+                self.B_Euler_data = data["Better Euler"]
+                self.Verlet_data = data["Verlet"]
+                self.analytic_series_pos = data["Analytic"][0]
+                self.analytic_series_vel = data["Analytic"][1]
+                self.analytic_energy = data["Analytic"][2]
+                self.Euler_Cromer_data = data["Euler Cromer"]
+                self.h, self.no_steps, self.b, self.m, self.k, self.init_x, self.init_v = data["coefficients"]
+                print(self.h)
+                print(self.no_steps)
+                print(self.b)
+                print(self.m)
+                print(self.k)
+                print(self.init_x)
+                print(self.init_v)
 
-        json_file.close()
+            json_file.close()
+            return True
+        except:
+            print("The file was not found")
+            return False
+
+    def find_accuracy(self):
+        # finds the accuracy of the simulation by using the analytic energy as a baseline
+        # this assigns a number of "fictitious energy" and also graphs the growth of the errors with time
+        figure = plt.figure()
+        axes_1 = figure.add_subplot(111)
+        axes_1.set_ylabel("Energy error/ J")
+        axes_1.set_xlabel("time/ s")
+        fict_energy = []
+        baseline = np.array(self.analytic_energy)
+
+        # Euler's method
+        temp = baseline - np.array(self.Euler_data[2])
+        axes_1.plot(self.time, temp, label="Euler")
+        fict_energy.append(np.sum(temp))
+        # Better Euler
+        temp = baseline - np.array(self.B_Euler_data[2])
+        axes_1.plot(self.time, temp, label="Improved Euler")
+        fict_energy.append(np.sum(temp))
+        # Cromer
+        temp = baseline - np.array(self.Euler_Cromer_data[2])
+        axes_1.plot(self.time, temp, label="Euler Cromer")
+        fict_energy.append(np.sum(temp))
+        # Verlet
+        temp = baseline - np.array(self.Verlet_data[2])
+        axes_1.plot(self.time, temp, label="Verlet")
+        fict_energy.append(np.sum(temp))
+        temp = 0
+        print("Euler: " + str(fict_energy[0]) + " J")
+        print("Improved Euler: " + str(fict_energy[1]) + "J")
+        print("Euler Cromer: " + str(fict_energy[2]) + "J")
+        print("Verlet: " + str(fict_energy[3]) + "J")
+        figure.legend()
+        axes_1.set_title("h = " + str(self.h))
+
+    '''
+    def thing(self):
+        plt.plot(self.time, self.analytic_series_pos)
+        plt.plot(self.time, self.analytic_series_vel, label="bitch")
+        plt.legend()
+    '''
+
 
 def getData():
+    fileName = input("Enter the name of the simulation (don't forget the format)")
     m = input("Enter the value for the mass of the particle: ")
     k = input("Enter the value of the spring constant: ")
     b = input("Enter the value of the damping constant ")
@@ -366,14 +423,17 @@ def getData():
 def main():
     m = 5.44
     k = 0.93
-    b = 0.01
-    T = 50  # max time
-    h = 0.1  # time step
 
-    a = SHO(h, T, b, m, k, 10, 0)
-    a.plot_data()
-    a.plot_single()
-    #a.save_data()
+    b = 0.00
+    T = 100  # max time
+    h = 0.01  # time step
+
+    os = SHO(h, T, b, m, k, 10, 0)
+    # os.runSimulation()
+    # os.plot_data()
+    # os.plot_single()
+    # os.save_data()
+
 
 
 main()
