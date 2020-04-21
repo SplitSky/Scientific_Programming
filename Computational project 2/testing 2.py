@@ -861,7 +861,7 @@ def main():
                     os = SHO(0.01, 100)
                     os.load_data()
                 else:
-                    os = SHO(0, 0, 0, 0, 0, 0, 0, name)
+                    os = SHO(0.01, 100, fileNameLoad=name)
                     check = os.load_data()
                     if not check:
                         print("Goodbye!")
@@ -878,11 +878,11 @@ def main():
             if option == "3":
                 os.Critical()
             elif option == "4":
-                min = input("Minimum time: ")
-                max = input("Maximum time: ")
-                force = input("Force magnitude: ")
-                Amp = input("Sinusoidal force amplitude: ")
-                freq = input("Sinusoidal force frequency: ")
+                min = float(input("Minimum time: "))
+                max = float(input("Maximum time: "))
+                force = float(input("Force magnitude: "))
+                Amp = float(input("Sinusoidal force amplitude: "))
+                freq = float(input("Sinusoidal force frequency: "))
                 os.push_testing(min, max, force, Amp, freq)
             elif option == "5":
                 os.plot_data()
