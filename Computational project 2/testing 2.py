@@ -14,6 +14,7 @@ import random
 import time
 import cmath
 import json
+from scipy import optimize
 
 plt.rcParams.update({'font.size': 14})
 plt.style.use('default')
@@ -52,6 +53,7 @@ class SHO(object):
         self.Euler_Cromer_data = []
         self.analytical_data = []
         self.time = np.array(range(0, self.no_steps, 1)) * self.h
+        self.disturbed_Verlet_data = []
 
     def runSimulation(self):
         self.Euler_integrator()
@@ -96,7 +98,9 @@ class SHO(object):
             v_n = velocity_series[len(velocity_series) - 1]
             x_n = position_series[len(position_series) - 1]
 
-            temp = v_n - (self.k * self.h / self.m) * x_n  # v_n+1
+            a_0 = (-self.b / self.m) * v_n + (-self.k / self.m) * x_n
+
+            temp = v_n + self.h * a_0  # v_n+1
             velocity_series.append(temp)
             position_series.append(x_n + self.h * temp)
 
@@ -109,8 +113,8 @@ class SHO(object):
         velocity_series = [self.init_v]
 
         D = 2 * self.m + self.b * self.h
-        B = (self.b * self.h - 2 * self.m) / D
-        A = 2 * (2 * self.m - self.k * self.h ** 2) / D
+        B = ((self.b * self.h) - (2 * self.m)) / D
+        A = 2 * (2 * self.m - (self.k * self.h ** 2)) / D
 
         a_0 = (-self.b / self.m) * self.init_v + (-self.k / self.m) * self.init_x
         x_1 = self.init_x + self.init_v * self.h + 0.5 * a_0 * self.h ** 2  # obtained using a Taylor expansion of order 2
@@ -152,6 +156,10 @@ class SHO(object):
         self.analytic_energy = self.energy_function(self.analytic_series_pos, self.analytic_series_vel)
 
     def solver(self):
+        #
+        print((self.k / self.m))
+        print((self.b ** 2 / (4 * self.m ** 2)))
+        #
         A = 0
         B = 0
         temp = (self.b ** 2 / (4 * self.m ** 2))
@@ -167,13 +175,13 @@ class SHO(object):
 
             self.__coefficients = [omega, 0, marker, A, B]
         elif (self.k / self.m) > temp:  # imaginary
-            print("The solution is an undamped oscillation")
+            print("The solution is a lightly damped oscillation")
             marker = 3
 
-            p = -1 * self.b / 2 * self.m
+            p = -1 * self.b / (2 * self.m)
             q = np.sqrt((self.k / self.m) - self.b ** 2 / (4 * self.m ** 2))
             # initial conditions
-            A = (self.init_x * p - self.init_v) / q
+            A = (- self.init_x * p + self.init_v) / q
             B = self.init_x
             self.__coefficients = [p, q, marker, A, B]
         elif (self.k / self.m) == temp:
@@ -191,9 +199,9 @@ class SHO(object):
 
             # initial conditions
             A = (q * self.init_x - self.init_v) / (q - p)
-
             B = self.init_x - A
             self.__coefficients = [p, q, marker, A, B]
+        print(marker)
 
     def ana_position(self, t):
         k_1 = self.__coefficients[0]
@@ -380,19 +388,19 @@ class SHO(object):
         baseline = np.array(self.analytic_energy)
 
         # Euler's method
-        temp = baseline - np.array(self.Euler_data[2])
+        temp = np.abs(np.array(self.Euler_data[2]) - baseline)
         axes_1.plot(self.time, temp, label="Euler")
         fict_energy.append(np.sum(temp))
         # Better Euler
-        temp = baseline - np.array(self.B_Euler_data[2])
+        temp = np.abs(np.array(self.B_Euler_data[2]) - baseline)
         axes_1.plot(self.time, temp, label="Improved Euler")
         fict_energy.append(np.sum(temp))
         # Cromer
-        temp = baseline - np.array(self.Euler_Cromer_data[2])
+        temp = np.abs(np.array(self.Euler_Cromer_data[2]) - baseline)
         axes_1.plot(self.time, temp, label="Euler Cromer")
         fict_energy.append(np.sum(temp))
         # Verlet
-        temp = baseline - np.array(self.Verlet_data[2])
+        temp = np.abs(np.array(self.Verlet_data[2]) - baseline)
         axes_1.plot(self.time, temp, label="Verlet")
         fict_energy.append(np.sum(temp))
         temp = 0
@@ -403,38 +411,249 @@ class SHO(object):
         figure.legend()
         axes_1.set_title("h = " + str(self.h))
 
-    '''
+    def const_dist_Verlet_integrator(self, force, min, max):
+        position_series = [self.init_x]
+        velocity_series = [self.init_v]
+
+        D = 2 * self.m + self.b * self.h
+        B = (self.b * self.h - 2 * self.m) / D
+        A = 2 * (2 * self.m - self.k * self.h ** 2) / D
+
+        a_0 = (-self.b / self.m) * self.init_v + (-self.k / self.m) * self.init_x
+        x_1 = self.init_x + self.init_v * self.h + 0.5 * a_0 * self.h ** 2  # obtained using a Taylor expansion of order 2
+        position_series.append(x_1)
+
+        for counter in range(1, self.no_steps, 1):
+            if (counter * self.h > min) and (counter * self.h < max):
+                position_series.append(
+                    A * position_series[counter] + B * position_series[counter - 1] + (force / self.m * self.h ** 2))
+            else:
+                position_series.append(A * position_series[counter] + B * position_series[counter - 1])
+
+        # calculating velocities using an approximation of O(h^2)
+        # the velocity is estimated using the mean value theorem
+        # the velocity is independent of the equation of motion. It just utilises the definition of velocity. If h is small
+        # enough this approximation holds true
+        for counter in range(1, self.no_steps, 1):
+            velocity_series.append(
+                (position_series[counter + 1] - position_series[counter - 1]) / (2 * self.h))  # +O(h^2)
+        position_series = position_series[:len(position_series) - 1]
+
+        self.disturbed_Verlet_data = [position_series, velocity_series,
+                                      self.energy_function(position_series, velocity_series)]
+
+    def funct_dist_Verlet_integrator(self, min, max, Amp, freq):
+        position_series = [self.init_x]
+        velocity_series = [self.init_v]
+
+        D = 2 * self.m + self.b * self.h
+        B = (self.b * self.h - 2 * self.m) / D
+        A = 2 * (2 * self.m - self.k * self.h ** 2) / D
+
+        a_0 = (-self.b / self.m) * self.init_v + (-self.k / self.m) * self.init_x
+        x_1 = self.init_x + self.init_v * self.h + 0.5 * a_0 * self.h ** 2  # obtained using a Taylor expansion of order 2
+        position_series.append(x_1)
+
+        for counter in range(1, self.no_steps, 1):
+            if (counter * self.h > min) and (counter * self.h < max):
+                position_series.append(
+                    A * position_series[counter] + B * position_series[counter - 1] + (
+                            Amp * np.sin(freq * counter * self.h) / self.m * self.h ** 2))
+            else:
+                position_series.append(A * position_series[counter] + B * position_series[counter - 1])
+
+        # calculating velocities using an approximation of O(h^2)
+        # the velocity is estimated using the mean value theorem
+        # the velocity is independent of the equation of motion. It just utilises the definition of velocity. If h is small
+        # enough this approximation holds true
+        for counter in range(1, self.no_steps, 1):
+            velocity_series.append(
+                (position_series[counter + 1] - position_series[counter - 1]) / (2 * self.h))  # +O(h^2)
+        position_series = position_series[:len(position_series) - 1]
+
+        self.disturbed_Verlet_data = [position_series, velocity_series,
+                                      self.energy_function(position_series, velocity_series)]
+
+    def push_testing(self, min, max, force, amp, freq):
+        # constant force
+        self.const_dist_Verlet_integrator(force, min, max)
+        constant_data = self.disturbed_Verlet_data
+
+        # sinusoidal force
+        self.funct_dist_Verlet_integrator(min, max, amp, freq)
+        function_data = self.disturbed_Verlet_data
+
+        figure = plt.figure()
+        axes_1 = figure.add_subplot(111)
+        #axes_1.plot(self.time, constant_data[0], label="constant force")
+        axes_1.plot(self.time, function_data[0], label="sinusoidal force")
+        axes_1.plot(self.time, self.Verlet_data[0], label="undisturbed")
+        figure.legend()
+
+    def search(self, arr, x):
+        '''
+        variable name               type                    description
+        i                           integer                 counter
+        arr                         list                    array
+        x                           float                   the value being searched
+        '''
+        # linear search function
+        for i in range(len(arr)):
+            if arr[i] == x:
+                return i
+        return -1
+
+    def resonance_Plot(self):
+        def test_func(x, a, b):
+            return a * np.sin(b * x)
+
+        temp = np.sqrt(self.k / self.m)
+        freq_array = []
+        for counter in range(0, 400, 1):
+            freq_array.append(counter * temp * 0.01)
+
+        amplitude = []
+        for freq in freq_array:
+            # get the data sets for a specific frequency
+            self.funct_dist_Verlet_integrator(0, self.no_steps * self.h, self.init_x, freq)
+            temp = self.disturbed_Verlet_data[0]
+            # calculate amplitude
+            params, params_covariance = optimize.curve_fit(test_func, self.time, temp, p0=[2, 2])
+            amplitude.append((params[0]))
+            # append to the arrays
+        # plot the results
+        figure = plt.figure()
+        axes_1 = figure.add_subplot(111)
+        axes_1.set_xlabel("Frequency/ Hz")
+        axes_1.set_ylabel("Amplitude/ m")
+        axes_1.plot(freq_array, amplitude, "+b")
+
+    def Critical(self):
+        temp = self.b
+        b = [0.5 * self.b_critical, self.b_critical, 2 * self.b_critical]
+        data = []
+        for entry in b:
+            self.b = entry
+            self.Verlet_integrator()
+            data.append(self.Verlet_data)
+
+        # Verlet method
+        # phase plots
+        figure4 = plt.figure()
+        axes_7 = figure4.add_subplot(121)
+        axes_7.plot(data[0][0], data[0][1], label="0.5b")
+        axes_7.plot(data[1][0], data[1][1], label="b")
+        axes_7.plot(data[2][0], data[2][1], label="2b")
+        axes_7.set_xlabel("position (m)")
+        axes_7.set_ylabel("velocity (ms^-1)")
+        # energy plotting
+        axes_8 = figure4.add_subplot(122)
+        axes_8.plot(self.time, data[0][2])
+        axes_8.plot(self.time, data[1][2])
+        axes_8.plot(self.time, data[2][2])
+        axes_8.set_xlabel("time (s)")
+        axes_8.set_ylabel("energy (J)")
+        # position plot
+        figure = plt.figure()
+        axes_1 = figure.add_subplot(111)
+        axes_1.plot(self.time, data[0][0], label="0.5b")
+        axes_1.plot(self.time, data[1][0], label="b")
+        axes_1.plot(self.time, data[2][0], label="2b")
+        axes_1.set_ylabel("Position (m)")
+        axes_1.set_xlabel("Time (s)")
+        figure4.legend()
+        figure.legend()
+
+        self.b = temp
+
     def thing(self):
-        plt.plot(self.time, self.analytic_series_pos)
-        plt.plot(self.time, self.analytic_series_vel, label="bitch")
+        plt.plot(self.Verlet_data[0], self.Verlet_data[1], label="Verlet")
+        plt.plot(self.analytic_series_pos, self.analytic_series_vel, label="analytic")
+        plt.plot(self.Euler_Cromer_data[0], self.Euler_Cromer_data[1], label="Eruler Cromer")
+        plt.plot(self.Euler_data[0], self.Euler_data[1], label="Euler")
+        plt.plot(self.B_Euler_data[0], self.B_Euler_data[1], label="Better euler")
+
         plt.legend()
-    '''
 
 
-def getData():
-    fileName = input("Enter the name of the simulation (don't forget the format)")
-    m = input("Enter the value for the mass of the particle: ")
-    k = input("Enter the value of the spring constant: ")
-    b = input("Enter the value of the damping constant ")
-    T = input("Enter the time you want the simulation to run: ")
-    h = input("Enter the time step in seconds: ")
+def getData():  # edit this function
+
+    fileName = float(input("Enter the name of the simulation (don't forget the format)"))
+    m = float(input("Enter the value for the mass of the particle: "))
+    k = float(input("Enter the value of the spring constant: "))
+    b = float(input("Enter the value of the damping constant "))
+    T = float(input("Enter the time you want the simulation to run: "))
+    h = float(input("Enter the time step in seconds: "))
+    init_x = float(input("Enter the initial position"))
+    init_v = float(input("Enter the initial velocity"))
+
+    return m, k, b, T, h, init_x, init_v
 
 
 def main():
+    option = 0
+    while option != "8":
+        option = input("Select an option:")
+        print("1. Run simulation")
+        print("2. Load old simulation")
+        if option == "1" or option == "2":
+            if option == "1":
+                m, k, b, T, h, init_x, init_v = getData()
+                os = SHO(h, T, b, m, k, init_x, init_v)
+            elif option == "2":
+                print("Enter the name of the file or type 'none' if you want to use default")
+                name = input()
+                if name == "none":
+                    os = SHO(0, 0, 0, 0, 0, 0, 0)
+                    os.load_data()
+                else:
+                    os = SHO(0, 0, 0, 0, 0, 0, 0, name)
+                    check = os.load_data()
+                    if not check:
+                        print("Goodbye!")
+                        return 0
+            option = input("Select an option:")
+            print("3. Run critical damping simulation")
+            print("4. Run simulation with the force appplied")
+            print("5. Plot all of it")
+            print("6. Save the simulation")
+            print("7. Plot Resonance Curves")
+            print("8. Leave")
+            if option == "3":
+                os.Critical()
+            elif option == "4":
+                min = input("Minimum time: ")
+                max = input("Maximum time: ")
+                force = input("Force magnitude: ")
+                Amp = input("Sinusoidal force amplitude: ")
+                freq = input("Sinusoidal force frequency: ")
+                os.push_testing(min, max, force, Amp, freq)
+            elif option == "5":
+                os.plot_data()
+                os.plot_single()
+            elif option == "6":
+                os.save_data()
+                print("File was saved as data.txt")
+            elif option == "7":
+                os.resonance_Plot()
+        else:
+            print("Goodbye!")
+
+
+def main2():
     m = 5.44
     k = 0.93
-
-    b = 0.00
-    T = 100  # max time
+    b = 0.1
+    T = 500  # max time
     h = 0.01  # time step
 
     os = SHO(h, T, b, m, k, 10, 0)
-    # os.runSimulation()
-    # os.plot_data()
-    # os.plot_single()
-    # os.save_data()
+    os.runSimulation()
 
+    #os.push_testing(45.6, 100, 2, 2, 0.062832)  # at zero amplitude
+    #os.push_testing(57, 100, 2, 2, 6.2832)  # at 3/4 of a cycle
+    #os.push_testing(53.2, 100, 2, 2, 0.41)
+    os.resonance_Plot()
 
-
-main()
+main2()
 plt.show()
