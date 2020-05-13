@@ -24,8 +24,42 @@ plt.rcParams.update({'errorbar.capsize': 2})
 
 water_number_density = 33.3679
 
+jit(nopython=True)  # used for compiling code
 
-################################### @jit(nopython=True) used for compiling code
+
+def linearFit(x, flux, meanFreePath, plot):
+    temp = []
+    for counter in range(0, len(flux), 1):
+        if (flux[counter] == 0):
+            temp.append(counter)
+    flux = np.delete(flux, temp)
+    x = np.delete(x, temp)
+    y = np.log(flux)
+
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True)
+    fit_m = fit_parameters[0]
+    fit_c = fit_parameters[1]
+    variance_m = fit_errors[0][0]
+    variance_c = fit_errors[1][1]
+    sigma_m = np.sqrt(variance_m)
+    sigma_c = np.sqrt(variance_c)
+
+    if plot:
+        figure = plt.figure()
+        axes = figure.add_subplot(111)
+        axes.plot(x, fit_m * x + fit_c)
+        axes.scatter(x, y)
+        axes.set_xlabel("Number")
+        axes.set_ylabel("Frequency")
+
+        print('Linear np.polyfit of y = m*x + c')
+        print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
+        print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
+        print("mean free path -1/lambda =" + str(-1 / meanFreePath))
+
+    return fit_m, sigma_m
+
+
 class LCG:
     """
     A general linear congruential generator
@@ -294,9 +328,20 @@ class Random_Generator(object):
     def getLength(self, vector):
         return np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
 
+    def generateDirection(self,r, vector):
+        length = self.getLength(vector) # normalizes the vector -> length 1
+        vector[0] = vector[0] / length
+        vector[1] = vector[1] / length
+        vector[2] = vector[2] / length
+
+        for counter in range(0,3,1,): # extends the vector appropriately
+            vector[counter] *= r
+
+        return vector
+
 
 class Experiment(Random_Generator):
-    def __init__(self, absorbArea, scatterArea, density, N, thickness=10):
+    def __init__(self, absorbArea, scatterArea, density, N, thickness, name, material2):
         self.data = []
         self.absArea = absorbArea
         self.scatterArea = scatterArea
@@ -305,11 +350,14 @@ class Experiment(Random_Generator):
         self.N = N
         self.meanFreePath = self.density * self.absArea + self.density * self.scatterArea
         self.history = []
+        self.gradients = [[], [], []]  # stores gradients form many experiments
+        # absorbed, reflected, transmitted
+        self.name = name
+        self.material2 = material2
         super().__init__()
 
     def randomWalk(self, T):
         vector = self.genDistVector(self.meanFreePath)
-        print(vector)
         # T -> thickness
         prob_absorption = self.density * self.absArea / (self.density * self.absArea + self.density * self.scatterArea)
         result = 0
@@ -320,9 +368,9 @@ class Experiment(Random_Generator):
 
         while is_absorbed == 0:
             if i == 0:
-                vector = [self.getLength(vector), 0, 0]
+                vector[0] += self.getLength(vector)  ## adds the vectors
             else:
-                vector = self.genDistVector(self.meanFreePath)
+                vector = self.addVectors(self.genDistVector(self.meanFreePath), vector)
 
             self.history[0].append(vector[0])
             self.history[1].append(vector[1])
@@ -343,7 +391,16 @@ class Experiment(Random_Generator):
                 # scatters
                 i += 1
 
+    def addVectors(self, vector1, vector2):
+        temp = [0, 0, 0]
+        for counter in range(0, 3, 1):
+            print(counter)
+            temp[counter] = vector1[counter] + vector2[counter]
+
+        return temp
+
     def plotRandomWalk(self):
+        print(self.history)
         x = self.history[0]
         y = self.history[1]
         z = self.history[2]
@@ -356,8 +413,8 @@ class Experiment(Random_Generator):
         histories = []
         results = [0, 0, 0]
         for i in range(0, N, 1):
-            self.randomWalk(thickness)
-            histories.append(self.history[0])
+            result, temp = self.randomWalk(thickness)
+            histories.append(result)
 
         for entry in histories:
             # counts the outcomes
@@ -367,15 +424,166 @@ class Experiment(Random_Generator):
                 results[1] += 1
             elif entry == "reflected":
                 results[2] += 1  #
-
         self.data = results
 
-    def thicknessPlot(self, N):
+    def thicknessPlot(self, N, min_T, max_T, step):
         results = []
-        thickness = np.arange(start=0, end=100, step=1)
+        thickness = np.arange(min_T, max_T, step=step)
         for entry in thickness:
             self.experiment(N, entry)
             results.append(self.data)
+        self.data = results
+        self.thickness = thickness  # array storing thickness
+
+        absorbed = []
+        transmitted = []
+        reflected = []
+
+        for entry in results:
+            absorbed.append(entry[0])
+            transmitted.append(entry[1])
+            reflected.append(entry[2])
+
+        # plotting for absorption
+        flux = np.array(absorbed)
+        self.gradients[0].append(linearFit(thickness, flux, self.meanFreePath, False))
+
+        # plotting for reflection
+        flux = np.array(reflected)
+        self.gradients[1].append(linearFit(thickness, flux, self.meanFreePath, False))
+
+        # plotting for transmission
+        flux = np.array(transmitted)
+        self.gradients[2].append(linearFit(thickness, flux, self.meanFreePath, False))
+
+        print(self.gradients)
+
+    def thing(self):
+        x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        i = 0
+        for item in self.gradients[0]:
+            print(item[0])
+            plt.plot(x, item[0] * x, label=str(i))
+            i += 1
+            plt.legend()
+
+    def percentageAbsorption(self, N):
+        # check variation of error with number of neutrons used
+        thickness = 10  # cm
+        results = []
+        for counter in range(50):
+            self.experiment(N, thickness)
+            results.append(self.data)
+
+        absorbed = []
+        transmitted = []
+        reflected = []
+
+        for entry in results:
+            absorbed.append(entry[0])
+            transmitted.append(entry[1])
+            reflected.append(entry[2])
+
+        mean_absorbed = np.mean(absorbed) / N * 100
+        mean_transmitted = np.mean(transmitted) / N * 100
+        mean_reflected = np.mean(reflected) / N * 100
+
+        std_abs = np.std(absorbed) / np.mean(absorbed) * mean_absorbed
+        std_tra = np.std(transmitted) / np.mean(transmitted) * mean_transmitted
+        std_ref = np.std(reflected) / np.mean(reflected) * mean_reflected
+
+        print("----------------------------------------------------------------------------------------")
+        print("Transmission through a fixed Thickness - " + str(self.name))
+        print("Thickness : 10 cm ")
+        print("Total Neutrons: " + str(N))
+        print("Neutrons Reflected: " + str(np.mean(reflected)))
+        print("Neutrons Transmitted: " + str(np.mean(transmitted)))
+        print("Neutrons Absorbed: " + str(np.mean(absorbed)))
+        print("Percentage Transmitted: " + str(mean_transmitted))
+
+        print(
+            'The average percentage of neutrons that were absorbed is: {:04.10f} % +/- {:04.10f}'.format(mean_absorbed,
+                                                                                                         std_abs))
+        print('The average percentage of neutrons that were transmitted is: {:04.10f} % +/- {:04.10f}'.format(
+            mean_transmitted, std_tra))
+        print('The average percentage of neutrons that were reflected is: {:04.10f} % +/- {:04.10f}'.format(
+            mean_reflected, std_ref))
+
+    def woodcockMethod(self, T1, T2):
+        marker = 0
+        Sigma1 = 1 / self.meanFreePath
+        Sigma2 = self.material2[0] * self.material2[2] + self.material2[1] * self.material2[2]
+        SigmaT = 0
+        if Sigma1 > Sigma2:
+            marker = 2
+            SigmaT = Sigma1
+            prob_fictitious = 1 - Sigma2/ SigmaT
+        else:
+            marker = 1
+            SigmaT = Sigma2
+            prob_fictitious = 1 - Sigma1 / SigmaT
+
+        self.meanFreePath = 1 / SigmaT
+
+        vector = self.genDistVector(self.meanFreePath)
+        # T -> thickness
+        prob_absorption1 = self.density * self.absArea / (self.density * self.absArea + self.density * self.scatterArea)
+        prob_absorption2 = self.material2[0] * self.material2[2] / (
+                    self.material2[0] * self.material2[2] + self.material2[1] * self.material2[2])
+
+        result = 0
+        is_absorbed = 0
+        i = 0
+        x = 0
+        self.history = [[], [], []]
+        vector = [0, 0, 0]
+
+        while is_absorbed == 0:
+            if i == 0:
+                vector[0] += self.getLength(vector)
+            else:
+                vector = self.addVectors(self.genDistVector(self.meanFreePath), vector)
+
+            self.history[0].append(vector[0])
+            self.history[1].append(vector[1])
+            self.history[2].append(vector[2])
+            x = vector[0]
+            if (x < 0):
+                return "reflected", self.history
+            elif (x > T2):
+                return "passed", self.history
+
+            # evaluate what happens to the particle
+            probability = np.random.uniform(0, 1, 1)[0]
+
+            # check the region the particle is in:
+            if (x < T1) and (x > 0):  # it's in region 1
+                if marker == 1:
+                    if probability > prob_fictitious:
+                        r = np.random.uniform(0, 1, 1)[0]
+                        r = -1 * self.meanFreePath * np.log(r)
+                        direction = self.generateDirection(r, vector)
+                        vector = self.addVectors(direction, vector) # makes the step
+                    else:
+                        probability = np.random.uniform(0, 1, 1)[0]
+                        if probability >= prob_absorption1:
+                            # gets absorbed
+                            is_absorbed = 1
+                            return "absorbed", self.history
+                else:
+
+            elif (x < T2) and (x >= T1):  # it's in region 2
+                if marker == 2:
+                    # fictiotious step in region 2
+                    x = 1
+
+            if probability <= prob_absorption:
+                # gets absorbed
+                is_absorbed = 1
+                return "absorbed", self.history
+            else:
+                # scatters
+                i += 1
 
 
 def main():
@@ -390,9 +598,15 @@ def main():
     lead = [0.158, 11.221, 11.35]
     Graphite = [0.0045, 4.74, 1.67]
 
-    generator = Experiment(water[0], water[1], water[2], 1000, 10)
-    print(generator.randomWalk(10))
+    generator = Experiment(water[0], water[1], water[2], 1000, 10, "water", lead)
+    # counter in range(20):
+    # generator.thicknessPlot(1000, 0, 100, 5)
+    generator.randomWalk(100)
     generator.plotRandomWalk()
+
+    # generator.thing()
+
+    # generator.percentageAbsorption(1000)
 
 
 main()
