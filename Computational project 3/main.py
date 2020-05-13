@@ -259,10 +259,15 @@ class Random_Generator(object):
         r = np.random.uniform(0, 1, N)
         r = -1 * meanFreePath * np.log(r)  # makes the lengths exponentially distributed
 
-        self.betterGenerateArray(N)
-        u = 2 * self.array - 1
-        self.betterGenerateArray(N)
-        theta = 2 * np.pi * self.array
+        number = np.random.uniform(0, 1, N).tolist()
+        number = number[0]
+
+        u = 2 * number - 1
+
+        number = np.random.uniform(0, 1, N).tolist()
+        number = number[0]
+
+        theta = 2 * number * self.array
 
         x = r * np.cos(theta) * np.sqrt(1 - u ** 2)
         y = r * np.sin(theta) * np.sqrt(1 - u ** 2)
@@ -284,7 +289,7 @@ class Random_Generator(object):
         y = r * np.sin(theta) * np.sqrt(1 - u ** 2)
         z = r * u
 
-        return [x, y, z]
+        return [x.tolist()[0], y.tolist()[0], z.tolist()[0]]
 
     def getLength(self, vector):
         return np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
@@ -302,19 +307,16 @@ class Experiment(Random_Generator):
         self.history = []
         super().__init__()
 
-    # def calculations(self):
-    #   meanFreePath = self.density*self.absArea + self.density*self.scatterArea
-
     def randomWalk(self, T):
         vector = self.genDistVector(self.meanFreePath)
+        print(vector)
         # T -> thickness
         prob_absorption = self.density * self.absArea / (self.density * self.absArea + self.density * self.scatterArea)
         result = 0
         is_absorbed = 0
         i = 0
         x = 0
-
-        self.history = []
+        self.history = [[], [], []]
 
         while is_absorbed == 0:
             if i == 0:
@@ -322,7 +324,10 @@ class Experiment(Random_Generator):
             else:
                 vector = self.genDistVector(self.meanFreePath)
 
-            self.history.append(vector)
+            self.history[0].append(vector[0])
+            self.history[1].append(vector[1])
+            self.history[2].append(vector[2])
+            x = vector[0]
             if (x < 0):
                 return "reflected", self.history
             elif (x > T):
@@ -339,21 +344,38 @@ class Experiment(Random_Generator):
                 i += 1
 
     def plotRandomWalk(self):
-        x, y, z = [], [], []
-        for entry in self.history:
-            x.append(entry[0])
-            y.append(entry[1])
-            z.append(entry[2])
+        x = self.history[0]
+        y = self.history[1]
+        z = self.history[2]
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111, projection='3d')
+        ax1.plot(x, y, z)
 
-        x = np.array(x)
-        y = np.array(y)
-        z = np.array(z)
+    def experiment(self, N, thickness):
+        # performs an experiment N times
+        histories = []
+        results = [0, 0, 0]
+        for i in range(0, N, 1):
+            self.randomWalk(thickness)
+            histories.append(self.history[0])
 
-        print(x)
-        print(y)
-        print(z)
+        for entry in histories:
+            # counts the outcomes
+            if entry == "absorbed":
+                results[0] += 1
+            elif entry == "passed":
+                results[1] += 1
+            elif entry == "reflected":
+                results[2] += 1  #
 
-        self.plotDistribution3D(x, y, z)
+        self.data = results
+
+    def thicknessPlot(self, N):
+        results = []
+        thickness = np.arange(start=0, end=100, step=1)
+        for entry in thickness:
+            self.experiment(N, entry)
+            results.append(self.data)
 
 
 def main():
