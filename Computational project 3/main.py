@@ -328,13 +328,13 @@ class Random_Generator(object):
     def getLength(self, vector):
         return np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
 
-    def generateDirection(self,r, vector):
-        length = self.getLength(vector) # normalizes the vector -> length 1
+    def generateDirection(self, r, vector):
+        length = self.getLength(vector)  # normalizes the vector -> length 1
         vector[0] = vector[0] / length
         vector[1] = vector[1] / length
         vector[2] = vector[2] / length
 
-        for counter in range(0,3,1,): # extends the vector appropriately
+        for counter in range(0, 3, 1, ):  # extends the vector appropriately
             vector[counter] *= r
 
         return vector
@@ -360,7 +360,6 @@ class Experiment(Random_Generator):
         vector = self.genDistVector(self.meanFreePath)
         # T -> thickness
         prob_absorption = self.density * self.absArea / (self.density * self.absArea + self.density * self.scatterArea)
-        result = 0
         is_absorbed = 0
         i = 0
         x = 0
@@ -517,7 +516,7 @@ class Experiment(Random_Generator):
         if Sigma1 > Sigma2:
             marker = 2
             SigmaT = Sigma1
-            prob_fictitious = 1 - Sigma2/ SigmaT
+            prob_fictitious = 1 - Sigma2 / SigmaT
         else:
             marker = 1
             SigmaT = Sigma2
@@ -525,20 +524,23 @@ class Experiment(Random_Generator):
 
         self.meanFreePath = 1 / SigmaT
 
-        vector = self.genDistVector(self.meanFreePath)
         # T -> thickness
         prob_absorption1 = self.density * self.absArea / (self.density * self.absArea + self.density * self.scatterArea)
         prob_absorption2 = self.material2[0] * self.material2[2] / (
-                    self.material2[0] * self.material2[2] + self.material2[1] * self.material2[2])
+                self.material2[0] * self.material2[2] + self.material2[1] * self.material2[2])
 
-        result = 0
         is_absorbed = 0
         i = 0
         x = 0
         self.history = [[], [], []]
-        vector = [0, 0, 0]
+
+        r = np.random.uniform(0, 1, 1)[0]
+        r = -1 * self.meanFreePath * np.log(r)
+        vector = [r, 0, 0]
 
         while is_absorbed == 0:
+            print(i)
+            print(vector)
             if i == 0:
                 vector[0] += self.getLength(vector)
             else:
@@ -563,27 +565,58 @@ class Experiment(Random_Generator):
                         r = np.random.uniform(0, 1, 1)[0]
                         r = -1 * self.meanFreePath * np.log(r)
                         direction = self.generateDirection(r, vector)
-                        vector = self.addVectors(direction, vector) # makes the step
+                        vector = self.addVectors(direction, vector)  # makes the step
+                        self.history[0].append(vector[0])
+                        self.history[1].append(vector[1])
+                        self.history[2].append(vector[2])
+                        i += 1
                     else:
                         probability = np.random.uniform(0, 1, 1)[0]
                         if probability >= prob_absorption1:
                             # gets absorbed
                             is_absorbed = 1
                             return "absorbed", self.history
+                        else:
+                            # scatters
+                            i += 1
                 else:
+                    # normal behaviour in region 1
+                    probability = np.random.uniform(0, 1, 1)[0]
+                    if probability >= prob_absorption1:
+                        is_absorbed = 1
+                        return "absorbed", self.history
+                    else:  # scatters
+                        i += 1
 
             elif (x < T2) and (x >= T1):  # it's in region 2
                 if marker == 2:
-                    # fictiotious step in region 2
-                    x = 1
+                    if probability > prob_fictitious:
+                        r = np.random.uniform(0, 1, 1)[0]
+                        r = -1 * self.meanFreePath * np.log(r)
+                        direction = self.generateDirection(r, vector)
+                        vector = self.addVectors(direction, vector)  # makes the step
+                        self.history[0].append(vector[0])
+                        self.history[1].append(vector[1])
+                        self.history[2].append(vector[2])
+                        i += 1
+                    else:
+                        probability = np.random.uniform(0, 1, 1)[0]
+                        if probability >= prob_absorption1:
+                            # gets absorbed
+                            is_absorbed = 1
+                            return "absorbed", self.history
+                        else:
+                            # scatters
+                            i += 1
 
-            if probability <= prob_absorption:
-                # gets absorbed
-                is_absorbed = 1
-                return "absorbed", self.history
-            else:
-                # scatters
-                i += 1
+                else:
+                    # normal behaviour in region 2
+                    probability = np.random.uniform(0, 1, 1)[0]
+                    if probability >= prob_absorption2:
+                        is_absorbed = 1
+                        return "absorbed", self.history
+                    else:  # scatters
+                        i += 1
 
 
 def main():
@@ -596,12 +629,13 @@ def main():
 
     water = [0.6652, 103.0, 1.00]
     lead = [0.158, 11.221, 11.35]
-    Graphite = [0.0045, 4.74, 1.67]
+    graphite = [0.0045, 4.74, 1.67]
 
     generator = Experiment(water[0], water[1], water[2], 1000, 10, "water", lead)
     # counter in range(20):
     # generator.thicknessPlot(1000, 0, 100, 5)
-    generator.randomWalk(100)
+    # generator.randomWalk(100)
+    generator.woodcockMethod(1000, 1000)
     generator.plotRandomWalk()
 
     # generator.thing()
