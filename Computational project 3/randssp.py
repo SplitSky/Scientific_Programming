@@ -12,6 +12,8 @@ import numpy as np
 #  serial correlation between three consecutive values.
 
 def randssp(p,q):
+    # q - how many sets of random numbers
+    # p - how many numbers in each set
     
     global m, a, c, x
         
@@ -38,4 +40,8 @@ def randssp(p,q):
     
     return r
 
+a = randssp(10,100)
+print(a)
+print(len(a[0]))
+print(len(a))
 
