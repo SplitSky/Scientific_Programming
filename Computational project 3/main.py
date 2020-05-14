@@ -5,7 +5,6 @@ Date: 13/05/2020
 Description: Project 3 - Monte Carlo techniques - Penetration of neutrons through shielding
 """
 # initialisation
-import string
 from math import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,7 +22,8 @@ figure = plt.figure()
 plt.rcParams.update({'errorbar.capsize': 2})
 
 
-def linearFit(x, flux, meanFreePath, plot):
+def linearFit(x, flux, meanFreePath, plot, ey):
+    ey = np.array(ey)
     '''
     :param x:
     :param flux:
@@ -52,9 +52,10 @@ def linearFit(x, flux, meanFreePath, plot):
             temp.append(counter)
     flux = np.delete(flux, temp)
     x = np.delete(x, temp)
+    ey = np.delete(ey, temp)
     y = np.log(flux)
 
-    fit_parameters, fit_errors = np.polyfit(x, y, 1, cov=True)
+    fit_parameters, fit_errors = np.polyfit(x, y, 1, w=ey, cov=True)
     fit_m = fit_parameters[0]
     fit_c = fit_parameters[1]
     variance_m = fit_errors[0][0]
@@ -75,7 +76,7 @@ def linearFit(x, flux, meanFreePath, plot):
         print('Intercept c = {:04.10f} +/- {:04.10f}'.format(fit_c, sigma_c))
         print("mean free path -1/lambda =" + str(-1 / meanFreePath))
 
-    return fit_m, sigma_m
+    return [fit_m, sigma_m], [x, y, ey, fit_c]
 
 
 class LCG:  # taken directly from the course material
@@ -129,6 +130,13 @@ class Random_Generator(object):
         for i in range(N):
             random_set = np.append(random_set, np.random.random())
         self.array = random_set
+
+    def weightedAverage(self, y, ey):
+        y = np.array(y)
+        ey = np.array(ey)
+        weighted_mean = np.sum(y / ey ** 2) / np.sum(1 / ey ** 2)
+        error = np.sqrt(1 / np.sum(1 / ey ** 2))
+        return weighted_mean, error
 
     def randssp(self, p, q):
         # q - how many sets of random numbers
@@ -205,7 +213,6 @@ class Random_Generator(object):
         # compare number generators
         # binomial calculation
         probablity = 1 / (len(bins) - 1)
-        print(probablity)
         binomial_mean = N * probablity
         binomial_std = np.sqrt(binomial_mean * (1 - binomial_mean / N))
         print("The expected value from the binomial distribution is: {:0.9} with fluctuation of  {:0.9}".format(
@@ -252,7 +259,6 @@ class Random_Generator(object):
 
     def quickHist(self, data, step):
         bins = np.arange(0, 1, step)
-        print(bins)
         figure = plt.figure()
         axes = figure.add_subplot(111)
         axes.set_ylabel("Frequency")
@@ -277,6 +283,7 @@ class Random_Generator(object):
         self.vectors = [x, y, z]
 
     def generateExponentialDist(self, N, plot, meanFreePath):
+
         step = 0.1
         bins = np.arange(0, 1, step)
         self.betterGenerateArray(N)
@@ -308,6 +315,7 @@ class Random_Generator(object):
             axes.scatter(x, y)
             axes.set_xlabel("Number")
             axes.set_ylabel("Frequency")
+            axes.errorbar(x, y, yerr=np.ones(len(y)) * 0.4, fmt='b+')
 
             print('Linear np.polyfit of y = m*x + c')
             print('Gradient  m = {:04.10f} +/- {:04.10f}'.format(fit_m, sigma_m))
@@ -370,19 +378,21 @@ class Experiment(Random_Generator):
         self.data = []
         self.absArea = material1[0]
         self.scatterArea = material1[1]
-        self.density = material1[2] # number density
+        self.density = material1[2]  # number density
         self.thickness = thickness
         self.thickness2 = thickness2
         self.N = N
-        self.meanFreePath = 1/(self.density * self.absArea + self.density * self.scatterArea)
-        print(self.meanFreePath)
-        print("meme")
+        self.meanFreePath = 1 / (self.density * self.absArea + self.density * self.scatterArea)
         self.history = []
         self.gradients = [[], [], []]  # stores gradients form many experiments
         # absorbed, reflected, transmitted
         self.name = name
         self.material2 = material2
-        self.woodcock = False
+        self.abs_err = []
+        self.pass_err = []
+        self.ref_err = []
+        self.x = []
+
         super().__init__()
 
     def randomWalk(self, T):
@@ -391,7 +401,7 @@ class Experiment(Random_Generator):
         SigmaT = 0
         SigmaT += self.density * self.absArea
         SigmaT += self.density * self.scatterArea
-        self.meanFreePath = 1/SigmaT
+        self.meanFreePath = 1 / SigmaT
 
         prob_absorption = self.density * self.absArea / (self.density * self.absArea + self.density * self.scatterArea)
         is_absorbed = 0
@@ -424,31 +434,36 @@ class Experiment(Random_Generator):
                 # scatters
                 i += 1
 
+    def compressData(self, array):
+        # compresses experiment data
+        absorbed = []
+        passed = []
+        reflected = []
+        for entry in array:
+            absorbed.append(entry[0])
+            passed.append(entry[1])
+            reflected.append(entry[2])
 
+        self.abs_err.append(np.std(absorbed))
+        self.pass_err.append(np.std(passed))
+        self.ref_err.append(np.std(reflected))
+
+        return [np.mean(absorbed), np.mean(passed), np.mean(reflected)]
 
     def addVectors(self, vector1, vector2):
         temp = [0, 0, 0]
         for counter in range(0, 3, 1):
-            print(counter)
             temp[counter] = vector1[counter] + vector2[counter]
 
         return temp
 
     def plotRandomWalk(self):
-        print(self.history)
         x = self.history[0]
         y = self.history[1]
         z = self.history[2]
         fig = plt.figure()
         ax1 = fig.add_subplot(111, projection='3d')
         ax1.plot(x, y, z)
-
-        if self.woodcock:
-            # insert plotting of a plane
-            x = np.array([[0,0], [0,self.thickness]])
-            y = np.array([[0,-1], [0,1]])
-            z = np.array([[0,-1], [0,1]])
-            #ax1.plot_surface(x,y,z)
 
     def experiment(self, N, thickness):
         # performs an experiment N times
@@ -474,7 +489,6 @@ class Experiment(Random_Generator):
         results = [0, 0, 0]
         for i in range(0, N, 1):
             result, temp = self.woodcockMethod()
-            print(result)
             histories.append(result)
 
         for entry in histories:
@@ -486,45 +500,51 @@ class Experiment(Random_Generator):
             elif entry == "reflected":
                 results[2] += 1  #
         self.data = results
-        print(self.data)
 
     def thicknessPlot(self, N, min_T, max_T, step):
+        array2 = []
         results = []
         thickness = np.arange(min_T, max_T, step=step)
         for entry in thickness:
-            self.experiment(N, entry)
-            results.append(self.data)
+            temp = []
+            for i in range(5):
+                self.experiment(N, entry)
+                temp.append(self.data)
+
+            temp = self.compressData(temp)
+            results.append(temp)
 
         self.data = results
+
         self.thickness = thickness  # array storing thickness
 
         absorbed = []
         transmitted = []
         reflected = []
-        print("meme")
-        print(self.data)
+
         for entry in self.data:
             absorbed.append(entry[0])
             transmitted.append(entry[1])
             reflected.append(entry[2])
 
-        print(absorbed)
-        print("asewjblfk")
         figure = plt.figure()
+
         # plotting for absorption
         flux = np.array(absorbed)
-        marker = [0,0,0]
+        marker = [0, 0, 0]
         temp = 0
         for entry in absorbed:
             if entry == 0:
                 temp += 1
 
         if not temp == len(absorbed):
-
-            self.gradients[0].append(linearFit(thickness, flux, self.meanFreePath, False))
+            temp, array = linearFit(thickness, flux, self.meanFreePath, False, self.abs_err)
+            self.gradients[0].append(temp)
             ax1 = figure.add_subplot(131)
             ax1.scatter(thickness, flux, label="Absorption")
             ax1.plot(thickness, flux)
+            ax1.errorbar(thickness, flux, yerr=self.abs_err, fmt='b+')
+            array2.append(array)
         else:
             marker[0] = 1
 
@@ -536,9 +556,12 @@ class Experiment(Random_Generator):
         if not temp == len(reflected):
             # plotting for reflection
             flux = np.array(reflected)
-            self.gradients[1].append(linearFit(thickness, flux, self.meanFreePath, False))
+            temp, array = linearFit(thickness, flux, self.meanFreePath, False, self.ref_err)
+            self.gradients[1].append(temp)
             ax2 = figure.add_subplot(132)
             ax2.scatter(thickness, flux, label="Reflection")
+            ax2.errorbar(thickness, flux, yerr=self.ref_err, fmt='b+')
+            array2.append(array)
         else:
             marker[1] = 1
 
@@ -549,38 +572,41 @@ class Experiment(Random_Generator):
         if not temp == len(transmitted):
             # plotting for transmission
             flux = np.array(transmitted)
-            self.gradients[2].append(linearFit(thickness, flux, self.meanFreePath, False))
+            temp, array = linearFit(thickness, flux, self.meanFreePath, False, self.pass_err)
+            self.gradients[2].append(temp)
             ax3 = figure.add_subplot(133)
             ax3.scatter(thickness, flux, label="Transmission")
             ax3.plot(thickness, flux)
+            ax3.errorbar(thickness, flux, yerr=self.ref_err, fmt='b+')
+            array2.append(array)
+
         else:
             marker[2] = 1
 
         if np.array(marker).sum() != 3:
             figure.legend()
-            print(self.gradients)
-            temp = -1* 1/self.gradients[2][0][0]
+            temp = -1 * 1 / self.gradients[2][0][0]
             temp2 = self.gradients[2][0][1] / self.gradients[2][0][0]
             temp2 *= temp
             temp2 = np.abs(temp2)
-            print("The attenuation length for " + str(self.name) +" is " + str(temp) + str(" +/- ") + str(temp2) + " cm")
+            print(
+                "The attenuation length for " + str(self.name) + " is " + str(temp) + str(" +/- ") + str(temp2) + " cm")
         else:
             print("no data obtained")
 
-    def thing(self):
-        x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        i = 0
-        for item in self.gradients[0]:
-            print(item[0])
-            plt.plot(x, item[0] * x, label=str(i))
-            i += 1
-            plt.legend()
+        figure2 = plt.figure()
+        ax11 = figure2.add_subplot(111)
+        ax11.scatter(array[0], array[1])
+        ax11.errorbar(array[0], array[1], yerr=np.ones(len(array[2]))*0.25)
+        ax11.plot(array[0] * self.gradients[2][0][0] + array[3])
+        ax11.set_ylabel("No. of neutrons")
+        ax11.set_xlabel("Thickness/ cm")
 
     def percentageAbsorption(self, N):
         # check variation of error with number of neutrons used
         thickness = 10  # cm
         results = []
-        for counter in range(50):
+        for counter in range(10):
             self.experiment(N, thickness)
             results.append(self.data)
 
@@ -592,6 +618,10 @@ class Experiment(Random_Generator):
             absorbed.append(entry[0])
             transmitted.append(entry[1])
             reflected.append(entry[2])
+
+        print(absorbed)
+        print(transmitted)
+        print(reflected)
 
         mean_absorbed = np.mean(absorbed) / N * 100
         mean_transmitted = np.mean(transmitted) / N * 100
@@ -622,7 +652,6 @@ class Experiment(Random_Generator):
         # Material 1 is always the first block encountered
         T1 = self.thickness
         T2 = self.thickness2 + T1
-        self.woodcock = True
         marker = 0
         Sigma1 = 1 / self.meanFreePath
         Sigma2 = self.material2[0] * self.material2[2] + self.material2[1] * self.material2[2]
@@ -653,8 +682,6 @@ class Experiment(Random_Generator):
         vector = [r, 0, 0]
 
         while is_absorbed == 0:
-            print(i)
-            print(vector)
             if i == 0:
                 vector[0] += self.getLength(vector)
             else:
@@ -730,34 +757,94 @@ class Experiment(Random_Generator):
                     else:  # scatters
                         i += 1
 
+    def percentageWoodcock(self, N):
+        # check variation of error with number of neutrons used
+        thickness = 10  # cm
+        results = []
+        for counter in range(50):
+            self.experimentWoodcock(N, 10, 10)
+            results.append(self.data)
+
+        absorbed = []
+        transmitted = []
+        reflected = []
+
+        for entry in results:
+            absorbed.append(entry[0])
+            transmitted.append(entry[1])
+            reflected.append(entry[2])
+
+        print(absorbed)
+        print(transmitted)
+        print(reflected)
+
+        mean_absorbed = np.mean(absorbed) / N * 100
+        mean_transmitted = np.mean(transmitted) / N * 100
+        mean_reflected = np.mean(reflected) / N * 100
+
+        std_abs = np.std(absorbed) / np.mean(absorbed) * mean_absorbed
+        std_tra = np.std(transmitted) / np.mean(transmitted) * mean_transmitted
+        std_ref = np.std(reflected) / np.mean(reflected) * mean_reflected
+
+        print("----------------------------------------------------------------------------------------")
+        print("Transmission through a fixed Thickness - " + str(self.name))
+        print("Thickness : 10 cm ")
+        print("Total Neutrons: " + str(N))
+        print("Neutrons Reflected: " + str(np.mean(reflected)))
+        print("Neutrons Transmitted: " + str(np.mean(transmitted)))
+        print("Neutrons Absorbed: " + str(np.mean(absorbed)))
+        print("Percentage Transmitted: " + str(mean_transmitted))
+
+        print(
+            'The average percentage of neutrons that were absorbed is: {:04.10f} % +/- {:04.10f}'.format(mean_absorbed,
+                                                                                                         std_abs))
+        print('The average percentage of neutrons that were transmitted is: {:04.10f} % +/- {:04.10f}'.format(
+            mean_transmitted, std_tra))
+        print('The average percentage of neutrons that were reflected is: {:04.10f} % +/- {:04.10f}'.format(
+            mean_reflected, std_ref))
+
 
 def main():
-    water = [0.6652, 103.0, 1.00]
-
-    water_meanFreePath = 1 / (water[0] * water[2] + water[1] * water[2])
-
-    lead = [0.158E-24, 11.221E-24, 1.985E46]
-    graphite = [0.0045E-24, 4.74E-24, 6.828E46]
+    lead = [0.158E-24, 11.221E-24, 1.34E23]
+    graphite = [0.0045E-24, 4.74E-24, 3.296E22]
     water = [0.6652E-24, 103.0E-24, 3.343E22]
 
     gen1 = Experiment(water, 1000, 10, 10, "water",
-                      lead)  # absorbArea, scatterArea, density, N, thickness,thickness2, name, material2
-    gen2 = Experiment(lead, 1000, 10, 10, "graphite", graphite)
-    gen3 = Experiment(graphite, 1000, 10, 10, "water", water)
-    gen1.experimentWoodcock(1000,40,40)
-    # demonstrate the generator
-    # gen1.testRandomGenerator(10000)
-    # gen1.spectraPhen()
-    # gen1.generateExponentialDist(10000, True, water_meanFreePath)
-    # gen1.generateDistVectors(water_meanFreePath, 10000) # generates a cluster of vectors
-    # gen1.generate_vectors(1000, True, 1) # sphere distribution
-    # experiment 1
-    # 10cm material - water. Only absorption
-    #water = [0.6652E-24, 0, 3.343E22]
-    #gen1 = Experiment(water, 1000, 10, 10, "water", lead)
-    #gen1.thicknessPlot(10000, 0, 90, 0.5)
-    gen1.plotRandomWalk()
+                      lead)
+    gen2 = Experiment(lead, 1000, 10, 10, "lead", graphite)
+    gen3 = Experiment(graphite, 1000, 10, 10, "graphite", water)
 
+
+    gen1.generateDistVectors(45,1000)
+
+    gen1.generateDistVectors(45,1000)
+    gen1.generate_vectors(1000, True)
+    gen1.spectraPhen()
+    gen1.testRandomGenerator(1000)
+    gen1.randomWalk(100)
+    gen1.plotRandomWalk()
+    
+
+
+    gen1.generateExponentialDist(10,True,45)
+    gen1.generateExponentialDist(100, True, 45)
+    gen1.generateExponentialDist(1000, True, 45)
+    gen1.generateExponentialDist(5000, True, 45)
+    gen1.generateExponentialDist(10000, True, 45)
+
+    print("10 cm spectra")
+    gen1.percentageAbsorption(5000)
+    gen2.percentageAbsorption(5000)
+    gen3.percentageAbsorption(5000)
+
+    print("Woodcock")
+    gen1.percentageWoodcock(1000)
+    gen3.percentageWoodcock(1000)
+
+    print("Thickness spectra")
+    gen1.thicknessPlot(500, 0, 10, 1)
+    gen2.thicknessPlot(1000, 0, 20, 1)
+    gen3.thicknessPlot(1000, 0, 100, 5)
 
 main()
 plt.show()
